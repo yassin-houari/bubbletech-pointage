@@ -1,0 +1,174 @@
+.pointage-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+}
+
+.pointage-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 3rem;
+  width: 100%;
+  max-width: 500px;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pointage-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.pointage-header .icon-large {
+  font-size: 4rem;
+  color: #4F46E5;
+  margin-bottom: 1rem;
+}
+
+.pointage-header h1 {
+  font-size: 2rem;
+  color: #1F2937;
+  margin-bottom: 0.5rem;
+}
+
+.pointage-header p {
+  color: #6B7280;
+}
+
+.code-input-section {
+  text-align: center;
+}
+
+.code-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.code-display {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.code-dot {
+  width: 60px;
+  height: 60px;
+  border: 3px solid #E5E7EB;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #9CA3AF;
+  transition: all 0.3s ease;
+  background: #F9FAFB;
+}
+
+.code-dot.filled {
+  border-color: #4F46E5;
+  color: #4F46E5;
+  background: #EEF2FF;
+  transform: scale(1.05);
+}
+
+.actions-section {
+  animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.user-info {
+  text-align: center;
+  padding: 1.5rem;
+  background: #F3F4F6;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.user-info h2 {
+  font-size: 1.5rem;
+  color: #1F2937;
+  margin-bottom: 0.25rem;
+}
+
+.user-info p {
+  color: #6B7280;
+  font-size: 0.95rem;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-action {
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  gap: 0.5rem;
+  height: 120px;
+}
+
+.btn-action svg {
+  font-size: 2rem;
+}
+
+.btn-action span {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.btn-action small {
+  font-size: 0.875rem;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.pointage-footer {
+  margin-top: 2rem;
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid #E5E7EB;
+}
+
+.pointage-footer p {
+  color: #6B7280;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  .pointage-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .code-dot {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
