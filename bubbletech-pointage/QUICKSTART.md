@@ -221,14 +221,14 @@ Retournez au tableau de bord pour voir les statistiques mises à jour.
 
 - [Documentation complète](README.md)
 - [Architecture technique](ARCHITECTURE.md)
-- [API Documentation](#) (à venir)
+
 
 ## 💡 Besoin d'aide ?
 
 - Consultez le README principal
 - Vérifiez les logs : `backend/logs/`
-- Email: support@bubbletech.be
+- Email: yassinhoua123@gmail.com
 
----
 
-**Bon démarrage ! 🚀**
+
+**Bon démarrage ! Yassin vous souhaite la bienvenue 🚀**
