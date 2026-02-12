@@ -161,8 +161,6 @@ Allez sur **http://localhost:3000/pointage**
 # Vérifier que MySQL est démarré
 sudo systemctl status mysql
 
-# Ou sur Mac
-brew services list
 ```
 
 ### Port déjà utilisé
@@ -217,6 +215,100 @@ Retournez au tableau de bord pour voir les statistiques mises à jour.
 3. Configurer les notifications
 4. Exporter en production
 
+## 🐛 Guide de Débogage (Debug)
+
+### Backend - Afficher les erreurs et logs en détail
+
+#### Option 1 : Mode Debug complet (Recommandé)
+
+```bash
+cd backend
+npm run debug-dev
+```
+
+Cela affichera :
+- 📥 Toutes les requêtes HTTP entrantes
+- 📤 Toutes les réponses avec le code de statut et le temps d'exécution
+- 🔍 Détails complets des headers, body et réponses
+- ❌ Messages d'erreur détaillés
+
+#### Option 2 : Lancer une fois en debug
+
+```bash
+cd backend
+npm run debug
+```
+
+#### Option 3 : Logs détaillés avec variable DEBUG
+
+```bash
+# Windows (PowerShell)
+$env:DEBUG='bubbletech:*'; npm run dev
+
+# Linux/Mac
+export DEBUG='bubbletech:*'
+npm run dev
+```
+
+### Frontend - Déboguer avec les DevTools du navigateur
+
+1. Ouvrir **http://localhost:3000** dans votre navigateur
+2. Appuyer sur **F12** (ou Ctrl+Shift+I) pour ouvrir les DevTools
+3. Aller sur l'onglet **Console** pour voir les erreurs JavaScript
+4. Aller sur l'onglet **Network** pour voir les requêtes API
+
+#### Ajouter des logs dans le code (React)
+
+```javascript
+// Dans vos composants
+console.log('Mon log:', variable);
+console.error('Erreur:', error);
+console.warn('Attention:', message);
+```
+
+### Erreurs courantes et solutions
+
+#### ❌ "Cannot find module 'debug'"
+
+```bash
+cd backend
+npm install debug
+```
+
+#### ❌ "Port 5000 déjà utilisé"
+
+Vérifier quel processus utilise le port :
+
+```powershell
+# Windows PowerShell
+Get-NetTCPConnection -LocalPort 5000 | Select-Object OwningProcess
+taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -i :5000
+kill -9 <PID>
+```
+
+#### ❌ Erreurs de connexion MySQL
+
+```bash
+# Vérifier les logs du serveur avec DEBUG activé
+npm run debug-dev
+
+# Vous verrez les détails de l'erreur de connexion
+```
+
+#### ❌ Erreurs CORS (accès au backend refusé)
+
+1. Vérifier que `backend/.env` contient :
+   ```
+   FRONTEND_URL=http://localhost:3000
+   ```
+
+2. Vérifier dans le terminal du backend en mode debug que les requêtes arrivent
+
+3. Vérifier dans les DevTools du frontend l'onglet "Network" pour voir l'erreur exact
+
 ## 📚 Ressources
 
 - [Documentation complète](README.md)
@@ -226,9 +318,5 @@ Retournez au tableau de bord pour voir les statistiques mises à jour.
 ## 💡 Besoin d'aide ?
 
 - Consultez le README principal
-- Vérifiez les logs : `backend/logs/`
+- Activez le mode debug pour voir tous les détails
 - Email: yassinhoua123@gmail.com
-
-
-
-**Bon démarrage ! Yassin vous souhaite la bienvenue 🚀**
