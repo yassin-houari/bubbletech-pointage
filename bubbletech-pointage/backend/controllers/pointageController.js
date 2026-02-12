@@ -1,12 +1,25 @@
 const { pool } = require('../config/database');
 
+// Simple schema cache to support both old (heure_*) and new (datetime) columns
+const schemaCache = {};
+const hasColumn = async (table, column) => {
+  const key = `${table}.${column}`;
+  if (schemaCache[key] !== undefined) return schemaCache[key];
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) as c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column]
+  );
+  const exists = rows[0].c > 0;
+  schemaCache[key] = exists;
+  return exists;
+};
+
 // Check-in (arrivée)
 const checkIn = async (req, res) => {
   const connection = await pool.getConnection();
   
   try {
     await connection.beginTransaction();
-
     const { user_id } = req.body;
     const userId = user_id || req.user.id;
     const now = new Date();
@@ -26,12 +39,22 @@ const checkIn = async (req, res) => {
       });
     }
 
-    // Créer une nouvelle session de pointage (plusieurs sessions/jour autorisées)
-    const [result] = await connection.query(
-      `INSERT INTO pointages (user_id, date_pointage, checkin_at, statut) 
-       VALUES (?, ?, ?, 'en_cours')`,
-      [userId, today, now]
-    );
+    // Create session using new or old column names depending on schema
+    const useCheckinAt = await hasColumn('pointages', 'checkin_at');
+    let result;
+    if (useCheckinAt) {
+      [result] = await connection.query(
+        `INSERT INTO pointages (user_id, date_pointage, checkin_at, statut) VALUES (?, ?, ?, 'en_cours')`,
+        [userId, today, now]
+      );
+    } else {
+      // fallback to TIME-only column
+      const timeStr = now.toTimeString().split(' ')[0];
+      [result] = await connection.query(
+        `INSERT INTO pointages (user_id, date_pointage, heure_checkin, statut) VALUES (?, ?, ?, 'en_cours')`,
+        [userId, today, timeStr]
+      );
+    }
 
     await connection.commit();
 
@@ -39,12 +62,13 @@ const checkIn = async (req, res) => {
       success: true,
       message: 'Check-in enregistré avec succès',
       pointage: {
-        id: result.insertId,
-        user_id: userId,
-        date_pointage: today,
-        checkin_at: now,
-        statut: 'en_cours'
-      }
+          id: result.insertId,
+          user_id: userId,
+          date_pointage: today,
+          checkin_at: useCheckinAt ? now : null,
+          heure_checkin: useCheckinAt ? null : now.toTimeString().split(' ')[0],
+          statut: 'en_cours'
+        }
     });
 
   } catch (error) {
@@ -85,37 +109,54 @@ const checkOut = async (req, res) => {
     const pointage = pointages[0];
     const checkoutAt = new Date();
 
-    // Calculer la durée totale de travail (en minutes). Utiliser les timestamps complets
-    const checkinTime = new Date(pointage.checkin_at);
+    // Calculer la durée totale de travail (en minutes). Support legacy TIME columns
+    let checkinTime;
+    if (pointage.checkin_at) {
+      checkinTime = new Date(pointage.checkin_at);
+    } else if (pointage.heure_checkin) {
+      checkinTime = new Date(`${pointage.date_pointage} ${pointage.heure_checkin}`);
+    } else {
+      // fallback: use created_at or now
+      checkinTime = pointage.created_at ? new Date(pointage.created_at) : new Date();
+    }
     const checkoutTime = checkoutAt;
     let dureeTravailMinutes = Math.floor((checkoutTime - checkinTime) / 60000);
 
     // Soustraire les pauses
-    const [pauses] = await connection.query(
-      'SELECT SUM(duree_minutes) as total_pauses FROM pauses WHERE pointage_id = ?',
-      [pointage.id]
-    );
-
+    // Sum pauses (works with both new and old pause schemas)
+    const hasDebutAt = await hasColumn('pauses', 'debut_at');
+    const sumQuery = hasDebutAt
+      ? 'SELECT SUM(duree_minutes) as total_pauses FROM pauses WHERE pointage_id = ?'
+      : 'SELECT SUM(duree_minutes) as total_pauses FROM pauses WHERE pointage_id = ?';
+    const [pauses] = await connection.query(sumQuery, [pointage.id]);
     if (pauses[0].total_pauses) {
       dureeTravailMinutes -= pauses[0].total_pauses;
     }
 
     // Mettre à jour le pointage
-    await connection.query(
-      `UPDATE pointages 
-       SET checkout_at = ?, statut = 'termine', duree_travail_minutes = ?
-       WHERE id = ?`,
-      [checkoutAt, dureeTravailMinutes, pointage.id]
-    );
+    const useCheckoutAt = await hasColumn('pointages', 'checkout_at');
+    if (useCheckoutAt) {
+      await connection.query(
+        `UPDATE pointages SET checkout_at = ?, statut = 'termine', duree_travail_minutes = ? WHERE id = ?`,
+        [checkoutAt, dureeTravailMinutes, pointage.id]
+      );
+    } else {
+      const timeStr = checkoutAt.toTimeString().split(' ')[0];
+      await connection.query(
+        `UPDATE pointages SET heure_checkout = ?, statut = 'termine', duree_travail_minutes = ? WHERE id = ?`,
+        [timeStr, dureeTravailMinutes, pointage.id]
+      );
+    }
 
     await connection.commit();
 
     res.json({
       success: true,
       message: 'Check-out enregistré avec succès',
-      pointage: {
+        pointage: {
           id: pointage.id,
-          checkout_at: checkoutAt,
+          checkout_at: useCheckoutAt ? checkoutAt : null,
+          heure_checkout: useCheckoutAt ? null : checkoutAt.toTimeString().split(' ')[0],
           duree_travail_minutes: dureeTravailMinutes,
           statut: 'termine'
         }
@@ -158,11 +199,12 @@ const startBreak = async (req, res) => {
 
     const pointage = pointages[0];
 
-    // Vérifier s'il n'y a pas déjà une pause en cours
-    const [pausesEnCours] = await connection.query(
-      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL',
-      [pointage.id]
-    );
+    // Vérifier s'il n'y a pas déjà une pause en cours (support legacy)
+    const hasFinAt = await hasColumn('pauses', 'fin_at');
+    const openPauseQuery = hasFinAt
+      ? 'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL'
+      : 'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL';
+    const [pausesEnCours] = await connection.query(openPauseQuery, [pointage.id]);
 
     if (pausesEnCours.length > 0) {
       await connection.rollback();
@@ -172,12 +214,18 @@ const startBreak = async (req, res) => {
       });
     }
 
-    // Créer la pause
-    const debutAt = new Date();
-    const [result] = await connection.query(
-      'INSERT INTO pauses (pointage_id, debut_at) VALUES (?, ?)',
-      [pointage.id, debutAt]
-    );
+    // Créer la pause (insert into debut_at or heure_debut depending on schema)
+    const hasDebutAt = await hasColumn('pauses', 'debut_at');
+    let result;
+    let debutAt = null;
+    let heureDebut = null;
+    if (hasDebutAt) {
+      debutAt = new Date();
+      [result] = await connection.query('INSERT INTO pauses (pointage_id, debut_at) VALUES (?, ?)', [pointage.id, debutAt]);
+    } else {
+      heureDebut = new Date().toTimeString().split(' ')[0];
+      [result] = await connection.query('INSERT INTO pauses (pointage_id, heure_debut) VALUES (?, ?)', [pointage.id, heureDebut]);
+    }
 
     await connection.commit();
 
@@ -187,7 +235,8 @@ const startBreak = async (req, res) => {
       pause: {
         id: result.insertId,
         pointage_id: pointage.id,
-        debut_at: debutAt
+        debut_at: debutAt,
+        heure_debut: heureDebut
       }
     });
 
@@ -228,11 +277,12 @@ const endBreak = async (req, res) => {
 
     const pointage = pointages[0];
 
-    // Récupérer la pause en cours
-    const [pauses] = await connection.query(
-      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL ORDER BY id DESC LIMIT 1',
-      [pointage.id]
-    );
+    // Récupérer la pause en cours (support legacy)
+    const hasFinAt = await hasColumn('pauses', 'fin_at');
+    const openPauseQuery = hasFinAt
+      ? 'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL ORDER BY id DESC LIMIT 1'
+      : 'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL ORDER BY id DESC LIMIT 1';
+    const [pauses] = await connection.query(openPauseQuery, [pointage.id]);
 
     if (pauses.length === 0) {
       await connection.rollback();
@@ -246,15 +296,20 @@ const endBreak = async (req, res) => {
     const finAt = new Date();
 
     // Calculer la durée de la pause (utiliser le timestamp actuel pour gérer traversée de minuit)
-    const debutTime = new Date(pause.debut_at);
+    let debutTime;
+    if (pause.debut_at) debutTime = new Date(pause.debut_at);
+    else if (pause.heure_debut) debutTime = new Date(`${pointage.date_pointage} ${pause.heure_debut}`);
+    else debutTime = finAt;
     const finTime = finAt;
     const dureeMinutes = Math.floor((finTime - debutTime) / 60000);
 
     // Mettre à jour la pause
-    await connection.query(
-      'UPDATE pauses SET fin_at = ?, duree_minutes = ? WHERE id = ?',
-      [finAt, dureeMinutes, pause.id]
-    );
+    if (hasFinAt) {
+      await connection.query('UPDATE pauses SET fin_at = ?, duree_minutes = ? WHERE id = ?', [finAt, dureeMinutes, pause.id]);
+    } else {
+      const timeStr = finAt.toTimeString().split(' ')[0];
+      await connection.query('UPDATE pauses SET heure_fin = ?, duree_minutes = ? WHERE id = ?', [timeStr, dureeMinutes, pause.id]);
+    }
 
     await connection.commit();
 
@@ -332,14 +387,22 @@ const getPointages = async (req, res) => {
       params.push(statut);
     }
 
-    query += ' ORDER BY p.date_pointage DESC, p.checkin_at DESC';
+    // Choisir colonne d'ordre selon le schéma (checkin_at ou heure_checkin)
+    const hasCheckinAt = await hasColumn('pointages', 'checkin_at');
+    const hasHeureCheckin = await hasColumn('pointages', 'heure_checkin');
+    const orderCol = hasCheckinAt ? 'p.checkin_at' : (hasHeureCheckin ? 'p.heure_checkin' : 'p.id');
+    query += ` ORDER BY p.date_pointage DESC, ${orderCol} DESC`;
 
     const [pointages] = await pool.query(query, params);
 
-    // Récupérer les pauses pour chaque pointage
+    // Récupérer les pauses pour chaque pointage (choisir colonne d'ordre selon schéma)
+    const hasDebutAt = await hasColumn('pauses', 'debut_at');
+    const hasHeureDebut = await hasColumn('pauses', 'heure_debut');
+    const pauseOrderCol = hasDebutAt ? 'debut_at' : (hasHeureDebut ? 'heure_debut' : 'id');
+
     for (let pointage of pointages) {
       const [pauses] = await pool.query(
-        'SELECT * FROM pauses WHERE pointage_id = ? ORDER BY debut_at',
+        `SELECT * FROM pauses WHERE pointage_id = ? ORDER BY ${pauseOrderCol}`,
         [pointage.id]
       );
       pointage.pauses = pauses;
