@@ -21,7 +21,14 @@ const checkIn = async (req, res) => {
   try {
     await connection.beginTransaction();
     const { user_id } = req.body;
-    const userId = user_id || req.user.id;
+    const userId = req.user.id;
+    if (user_id && Number(user_id) !== Number(userId)) {
+      await connection.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Acces interdit pour ce pointage'
+      });
+    }
     const now = new Date();
     const today = now.toISOString().split('T')[0];
 
@@ -91,7 +98,14 @@ const checkOut = async (req, res) => {
     await connection.beginTransaction();
 
     const { user_id } = req.body;
-    const userId = user_id || req.user.id;
+    const userId = req.user.id;
+    if (user_id && Number(user_id) !== Number(userId)) {
+      await connection.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Acces interdit pour ce pointage'
+      });
+    }
     // Récupérer la session en cours la plus récente (permet sessions traversant minuit)
     const [pointages] = await connection.query(
       'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',

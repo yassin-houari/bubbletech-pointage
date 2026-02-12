@@ -90,11 +90,11 @@ export const posteService = {
 
 // Services de pointage
 export const pointageService = {
-  checkIn: (user_id) => 
-    api.post('/pointages/checkin', { user_id }),
+  checkIn: () => 
+    api.post('/pointages/checkin'),
   
-  checkOut: (user_id) => 
-    api.post('/pointages/checkout', { user_id }),
+  checkOut: () => 
+    api.post('/pointages/checkout'),
   
   startBreak: () => 
     api.post('/pointages/break/start'),

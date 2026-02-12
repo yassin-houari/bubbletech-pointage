@@ -87,10 +87,18 @@ const login = async (req, res) => {
   }
 };
 
-// Login avec code secret (pour pointage)
+// Verification du code secret (pour pointage) - utilisateur connecte uniquement
 const loginWithCode = async (req, res) => {
   try {
     const { code_secret } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifie'
+      });
+    }
 
     if (!code_secret || code_secret.length !== 4) {
       return res.status(400).json({ 
@@ -99,10 +107,10 @@ const loginWithCode = async (req, res) => {
       });
     }
 
-    // Rechercher l'utilisateur par code
+    // Verifier que le code correspond a l'utilisateur connecte
     const [users] = await pool.query(
-      'SELECT * FROM users WHERE code_secret = ? AND actif = true',
-      [code_secret]
+      'SELECT * FROM users WHERE id = ? AND code_secret = ? AND actif = true',
+      [userId, code_secret]
     );
 
     if (users.length === 0) {
@@ -117,15 +125,15 @@ const loginWithCode = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Authentification réussie',
+      message: 'Code secret verifie',
       user: userWithoutPassword
     });
 
   } catch (error) {
-    console.error('Erreur lors de l\'authentification par code:', error);
+    console.error('Erreur lors de la verification du code secret:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Erreur serveur lors de l\'authentification' 
+      message: 'Erreur serveur lors de la verification' 
     });
   }
 };
