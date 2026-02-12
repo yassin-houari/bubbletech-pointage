@@ -54,7 +54,7 @@ const Dashboard = () => {
   };
 
   const groupPointagesByDateAndUser = (pointages) => {
-    // Group by date-user and aggregate total duration
+    // Group by date-user and aggregate total duration + all sessions
     const grouped = {};
     pointages.forEach((p) => {
       const key = `${p.date_pointage}:${p.user_id}`;
@@ -65,29 +65,19 @@ const Dashboard = () => {
           prenom: p.prenom,
           nom: p.nom,
           email: p.email,
-          sessionCount: 0,
           duree_totale_minutes: 0,
           statut_principal: 'termine',
-          checkin_at: null,
-          checkout_at: null
+          sessions: []
         };
       }
-      grouped[key].sessionCount += 1;
       grouped[key].duree_totale_minutes += (p.duree_travail_minutes || 0);
-      
-      // Track earliest checkin and latest checkout
-      if (p.checkin_at) {
-        const checkinDate = new Date(p.checkin_at);
-        if (!grouped[key].checkin_at || checkinDate < new Date(grouped[key].checkin_at)) {
-          grouped[key].checkin_at = p.checkin_at;
-        }
-      }
-      if (p.checkout_at) {
-        const checkoutDate = new Date(p.checkout_at);
-        if (!grouped[key].checkout_at || checkoutDate > new Date(grouped[key].checkout_at)) {
-          grouped[key].checkout_at = p.checkout_at;
-        }
-      }
+      grouped[key].sessions.push({
+        id: p.id,
+        checkin_at: p.checkin_at,
+        checkout_at: p.checkout_at,
+        duree_travail_minutes: p.duree_travail_minutes,
+        statut: p.statut
+      });
       
       // If any session is en_cours, mark principal status as en_cours
       if (p.statut === 'en_cours') {
@@ -95,7 +85,46 @@ const Dashboard = () => {
       }
     });
     
+    // Sort sessions by checkin_at
+    Object.values(grouped).forEach(group => {
+      group.sessions.sort((a, b) => new Date(a.checkin_at) - new Date(b.checkin_at));
+    });
+    
     return Object.values(grouped);
+  };
+
+  const renderSessions = (sessions) => {
+    if (!sessions || sessions.length === 0) {
+      return <span>-</span>;
+    }
+    
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {sessions.map((s, idx) => (
+          <div key={s.id} style={{ fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontWeight: '500', minWidth: '80px' }}>
+              {s.checkin_at ? format(new Date(s.checkin_at), 'HH:mm') : '-'}
+              {' → '}
+              {s.checkout_at ? format(new Date(s.checkout_at), 'HH:mm') : '...'}
+            </span>
+            <span style={{ color: '#666', fontSize: '0.85rem' }}>
+              {s.duree_travail_minutes ? formatDuration(s.duree_travail_minutes) : 'en cours'}
+            </span>
+            {s.statut === 'en_cours' && (
+              <span style={{ 
+                fontSize: '0.75rem', 
+                backgroundColor: '#fef08a', 
+                color: '#854d0e',
+                padding: '2px 6px',
+                borderRadius: '3px'
+              }}>
+                En cours
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const getTodayAttendance = () => {
@@ -196,8 +225,7 @@ const Dashboard = () => {
                 <tr>
                   {isAdminOrManager && <th>Nom</th>}
                   <th>Date</th>
-                  <th>Arrivée</th>
-                  <th>Départ</th>
+                  <th>Sessions (Arrivée → Départ)</th>
                   <th>Durée totale</th>
                   <th>Statut</th>
                 </tr>
@@ -211,11 +239,9 @@ const Dashboard = () => {
                     <td>
                       {format(new Date(group.date_pointage), 'dd MMMM yyyy', { locale: fr })}
                     </td>
-                    <td>{group.checkin_at ? format(new Date(group.checkin_at), 'HH:mm') : '-'}</td>
-                    <td>{group.checkout_at ? format(new Date(group.checkout_at), 'HH:mm') : '-'}</td>
-                    <td>
-                      <div>{formatDuration(group.duree_totale_minutes)}</div>
-                      <small style={{color: '#666'}}>({group.sessionCount} session{group.sessionCount > 1 ? 's' : ''})</small>
+                    <td>{renderSessions(group.sessions)}</td>
+                    <td style={{fontWeight: '500'}}>
+                      {formatDuration(group.duree_totale_minutes)}
                     </td>
                     <td>
                       <span className={`badge badge-${group.statut_principal}`}>
