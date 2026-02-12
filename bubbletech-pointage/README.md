@@ -396,4 +396,4 @@ Pour toute question : support@bubbletech.be
 
 ---
 
-**Développé avec ❤️ pour BubbleTech ASBL**
+**Développé avec ❤️ pour BubbleTech Apar Yassin Houari**
