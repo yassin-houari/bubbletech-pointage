@@ -6,8 +6,9 @@ Application web de gestion du temps et de présence pour l'ASBL BubbleTech.
 
 BubbleTech Pointage est une plateforme complète permettant :
 - ✅ Check-in/Check-out avec code PIN à 4 chiffres
+- ✅ **Plusieurs sessions par jour** (multi check-in/out avec gestion des pauses)
 - 👥 Gestion du personnel et des stagiaires
-- 📊 Statistiques et rapports de présence
+- 📊 Statistiques et rapports de présence (consolidés par jour)
 - 🔔 Notifications par email (Brevo)
 - 🔐 Authentification sécurisée avec JWT
 - 📱 Interface responsive (desktop et mobile)
@@ -258,10 +259,15 @@ L'application envoie automatiquement des emails via Brevo pour :
    - Feedback visuel immédiat
 
 3. **Dashboard** (`/dashboard`)
-   - Statistiques globales (Admin)
-   - Présences du jour
-   - Pointages récents
-   - Actions rapides
+   - Statistiques globales (Admin/Manager)
+   - Nombre de présents/absents du jour
+   - **Tableau "Pointages récents"** :
+     - Groupé par jour et utilisateur
+     - Affiche toutes les sessions (arrivée → départ) sur une seule ligne
+     - Durée totale consolidée par jour
+     - Statut global (En cours / Terminé)
+   - Historique 7 derniers jours
+   - Actions rapides (Pointer, Gérer personnel, Mes pointages)
 
 4. **Gestion du personnel** (`/users`) *(Admin uniquement)*
    - Liste des utilisateurs

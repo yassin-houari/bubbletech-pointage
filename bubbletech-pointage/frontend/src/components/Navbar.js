@@ -44,7 +44,7 @@ const Navbar = () => {
             <Link to="/pointage" onClick={() => setMenuOpen(false)}>
               <FiClock /> Pointage
             </Link>
-            {isAdmin && (
+            {isAdminOrManager && (
               <Link to="/users" onClick={() => setMenuOpen(false)}>
                 <FiUsers /> Personnel
               </Link>
