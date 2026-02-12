@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Pointage from './pages/Pointage';
 import Dashboard from './pages/Dashboard';
+import Personnel from './pages/Personnel';
 
 // Styles
 import './styles/App.css';
@@ -32,6 +33,14 @@ function App() {
                     <Dashboard />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/users"
+                element={
+                  <ProtectedRoute>
+                    <Personnel />
+                  </ProtectedRoute>
+                }
               />
               
               {/* Redirection par défaut */}

@@ -156,6 +156,7 @@ const getAllUsers = async (req, res) => {
   try {
     const { role, actif, search } = req.query;
     
+    // Base query: join role-specific tables to provide useful metadata
     let query = `
       SELECT u.*, 
              p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
@@ -173,6 +174,7 @@ const getAllUsers = async (req, res) => {
     
     const params = [];
 
+    // Apply role filter if provided
     if (role) {
       query += ' AND u.role = ?';
       params.push(role);
@@ -187,6 +189,12 @@ const getAllUsers = async (req, res) => {
       query += ' AND (u.nom LIKE ? OR u.prenom LIKE ? OR u.email LIKE ?)';
       const searchPattern = `%${search}%`;
       params.push(searchPattern, searchPattern, searchPattern);
+    }
+
+    // If the requester is a manager, restrict the listing to their team + themselves
+    if (req.user && req.user.role === 'manager') {
+      query += ' AND (u.id = ? OR u.id IN (SELECT membre_id FROM equipes WHERE manager_id = ?))';
+      params.push(req.user.id, req.user.id);
     }
 
     query += ' ORDER BY u.nom, u.prenom';
