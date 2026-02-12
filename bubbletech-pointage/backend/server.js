@@ -11,6 +11,8 @@ const { logAction } = require('./middleware/logger');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const pointageRoutes = require('./routes/pointages');
+const departementRoutes = require('./routes/departements');
+const posteRoutes = require('./routes/postes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +52,8 @@ app.post('/api/auth/login', loginLimiter); // Ajouter limite pour login
 app.post('/api/auth/login-code', loginLimiter);
 app.use('/api/users', userRoutes);
 app.use('/api/pointages', pointageRoutes);
+app.use('/api/departements', departementRoutes);
+app.use('/api/postes', posteRoutes);
 
 // Route de test
 app.get('/api/health', (req, res) => {
@@ -114,6 +118,10 @@ const startServer = async () => {
       console.log(`   - POST /api/pointages/break/end`);
       console.log(`   - GET  /api/pointages`);
       console.log(`   - GET  /api/pointages/stats`);
+      console.log(`   - GET  /api/departements`);
+      console.log(`   - POST /api/departements`);
+      console.log(`   - GET  /api/postes`);
+      console.log(`   - POST /api/postes`);
       console.log('\n✅ Serveur prêt à recevoir des requêtes\n');
     });
 
