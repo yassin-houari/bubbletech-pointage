@@ -29,6 +29,8 @@ const createUser = async (req, res) => {
       prenom,
       email,
       role,
+      password,
+      doit_changer_mdp,
       // Données personnel
       poste_id,
       date_embauche,
@@ -70,16 +72,26 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Générer mot de passe et code secret
-    const temporaryPassword = generateRandomPassword();
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    // Mot de passe : si fourni, hasher, sinon générer un mot de passe temporaire
+    let temporaryPassword = null;
+    let hashedPassword;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    } else {
+      temporaryPassword = generateRandomPassword();
+      hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    }
+
     const codeSecret = await generateUniqueCode();
+
+    // doit_changer_mdp : si fourni, respecter ; sinon forcer si mot de passe généré
+    const forceChange = typeof doit_changer_mdp !== 'undefined' ? !!doit_changer_mdp : (temporaryPassword !== null);
 
     // Créer l'utilisateur
     const [userResult] = await connection.query(
       `INSERT INTO users (nom, prenom, email, password, role, code_secret, doit_changer_mdp, actif) 
-       VALUES (?, ?, ?, ?, ?, ?, true, true)`,
-      [nom, prenom, email, hashedPassword, role, codeSecret]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nom, prenom, email, hashedPassword, role, codeSecret, forceChange, true]
     );
 
     const userId = userResult.insertId;
@@ -131,13 +143,17 @@ const createUser = async (req, res) => {
     
     await brevoService.sendWelcomeEmail(newUser, temporaryPassword);
 
-    res.status(201).json({
+    const responsePayload = {
       success: true,
       message: 'Utilisateur créé avec succès',
       userId,
-      temporaryPassword, // En production, ne pas retourner ceci
       codeSecret
-    });
+    };
+    if (temporaryPassword) {
+      responsePayload.temporaryPassword = temporaryPassword; // in production avoid returning
+    }
+
+    res.status(201).json(responsePayload);
 
   } catch (error) {
     await connection.rollback();
@@ -276,6 +292,8 @@ const updateUser = async (req, res) => {
       prenom,
       email,
       actif,
+      password,
+      doit_changer_mdp,
       // Données personnel
       poste_id,
       date_embauche,
@@ -315,6 +333,27 @@ const updateUser = async (req, res) => {
       updateFields.push('email = ?');
       updateValues.push(email);
     }
+    if (typeof req.body.role !== 'undefined' && req.body.role !== user.role) {
+      updateFields.push('role = ?');
+      updateValues.push(req.body.role);
+    }
+    if (typeof password !== 'undefined' && password !== null && password !== '') {
+      // hash the provided password
+      const hashed = await bcrypt.hash(password, 10);
+      updateFields.push('password = ?');
+      updateValues.push(hashed);
+      // If caller provided doit_changer_mdp, respect it; otherwise default to true when password changed
+      if (typeof doit_changer_mdp !== 'undefined') {
+        updateFields.push('doit_changer_mdp = ?');
+        updateValues.push(!!doit_changer_mdp);
+      } else {
+        updateFields.push('doit_changer_mdp = ?');
+        updateValues.push(true);
+      }
+    } else if (typeof doit_changer_mdp !== 'undefined') {
+      updateFields.push('doit_changer_mdp = ?');
+      updateValues.push(!!doit_changer_mdp);
+    }
     if (actif !== undefined) {
       updateFields.push('actif = ?');
       updateValues.push(actif);
@@ -326,6 +365,50 @@ const updateUser = async (req, res) => {
         `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
         updateValues
       );
+    }
+
+    // If the role has changed, handle role-specific records
+    const newRole = typeof req.body.role !== 'undefined' ? req.body.role : user.role;
+    if (newRole !== user.role) {
+      // Remove previous role-specific records if necessary
+      if (user.role === 'manager' && newRole !== 'manager') {
+        await connection.query('DELETE FROM managers WHERE user_id = ?', [id]);
+        await connection.query('DELETE FROM equipes WHERE manager_id = ?', [id]);
+      }
+      if (user.role === 'personnel' && newRole !== 'personnel') {
+        await connection.query('DELETE FROM personnel WHERE user_id = ?', [id]);
+      }
+      if (user.role === 'stagiaire' && newRole !== 'stagiaire') {
+        await connection.query('DELETE FROM stagiaires WHERE user_id = ?', [id]);
+      }
+
+      // Create/update new role-specific records if provided
+      if (newRole === 'manager') {
+        await connection.query('INSERT INTO managers (user_id, date_nomination) VALUES (?, CURDATE()) ON DUPLICATE KEY UPDATE date_nomination = date_nomination', [id]);
+      }
+      if (newRole === 'personnel') {
+        // require poste_id and date_embauche to create personnel entry; if not provided, create empty placeholder
+        const p_poste = req.body.poste_id || null;
+        const p_date = req.body.date_embauche || null;
+        const p_salaire = typeof req.body.salaire !== 'undefined' ? req.body.salaire : null;
+        if (p_poste && p_date) {
+          await connection.query(
+            `INSERT INTO personnel (user_id, poste_id, date_embauche, salaire) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE poste_id = VALUES(poste_id), date_embauche = VALUES(date_embauche), salaire = VALUES(salaire)`,
+            [id, p_poste, p_date, p_salaire]
+          );
+        }
+      }
+      if (newRole === 'stagiaire') {
+        const s_debut = req.body.date_debut || null;
+        const s_fin = req.body.date_fin || null;
+        const s_enc = typeof req.body.encadrant_id !== 'undefined' ? req.body.encadrant_id : null;
+        if (s_debut && s_fin) {
+          await connection.query(
+            `INSERT INTO stagiaires (user_id, date_debut, date_fin, encadrant_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE date_debut = VALUES(date_debut), date_fin = VALUES(date_fin), encadrant_id = VALUES(encadrant_id)`,
+            [id, s_debut, s_fin, s_enc]
+          );
+        }
+      }
     }
 
     // Mettre à jour les données spécifiques
