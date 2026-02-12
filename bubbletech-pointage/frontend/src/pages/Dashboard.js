@@ -166,8 +166,8 @@ const Dashboard = () => {
                     <td>
                       {format(new Date(pointage.date_pointage), 'dd MMMM yyyy', { locale: fr })}
                     </td>
-                    <td>{pointage.heure_checkin}</td>
-                    <td>{pointage.heure_checkout || '-'}</td>
+                    <td>{pointage.checkin_at ? format(new Date(pointage.checkin_at), 'HH:mm') : '-'}</td>
+                    <td>{pointage.checkout_at ? format(new Date(pointage.checkout_at), 'HH:mm') : '-'}</td>
                     <td>{formatDuration(pointage.duree_travail_minutes)}</td>
                     <td>
                       <span className={`badge badge-${pointage.statut}`}>
