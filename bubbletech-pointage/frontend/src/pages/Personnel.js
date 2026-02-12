@@ -45,7 +45,7 @@ const Personnel = () => {
   };
 
   const openCreate = () => {
-    setEditingUser({ nom: '', prenom: '', email: '', role: 'personnel', actif: true });
+    setEditingUser({ nom: '', prenom: '', email: '', role: 'personnel', actif: true, password: '', doit_changer_mdp: false });
     setShowForm(true);
   };
 
@@ -146,6 +146,17 @@ const Personnel = () => {
               <div>
                 <label>Email</label>
                 <input type="email" value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} required />
+              </div>
+              <div>
+                <label>Mot de passe (laisser vide pour générer un mot de passe temporaire)</label>
+                <input type="password" value={editingUser.password || ''} onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })} />
+              </div>
+              <div>
+                <label>Forcer changement mot de passe</label>
+                <select value={editingUser.doit_changer_mdp ? 'true' : 'false'} onChange={(e) => setEditingUser({ ...editingUser, doit_changer_mdp: e.target.value === 'true' })}>
+                  <option value="false">Non</option>
+                  <option value="true">Oui</option>
+                </select>
               </div>
               <div>
                 <label>Rôle</label>

@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Pointage from './pages/Pointage';
 import Dashboard from './pages/Dashboard';
 import Personnel from './pages/Personnel';
+import ChangePassword from './pages/ChangePassword';
 
 // Styles
 import './styles/App.css';
@@ -24,6 +25,14 @@ function App() {
               {/* Routes publiques */}
               <Route path="/login" element={<Login />} />
               <Route path="/pointage" element={<Pointage />} />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute>
+                    <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
               
               {/* Routes protégées */}
               <Route 

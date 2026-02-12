@@ -31,11 +31,9 @@ Application web complète de gestion du temps et de présence développée selon
 #### 2. Gestion du Pointage ✅
 - Check-in avec code PIN 4 chiffres
 - Check-out avec calcul automatique
-- **Support multi-sessions par jour** (plusieurs check-in/out autorisés)
-- Support multi-pauses par session
-- Historique complet avec durées calculées
+- Support multi-pauses par jour
+- Historique complet
 - Statuts : en_cours, terminé, incomplet
-- Affichage groupé par jour: sessions regroupées pour meilleure lisibilité
 
 #### 3. Authentification ✅
 - Login email/mot de passe avec JWT
@@ -191,23 +189,6 @@ frontend/
 - Mobile-friendly
 - Icônes react-icons
 
-### Détails du Dashboard
-
-**Tableau "Pointages récents"**
-- Affichage consolidé par jour et utilisateur
-- Colonnes : Nom | Date | Sessions (Arrivée → Départ) | Durée totale | Statut
-- Sessions multiples affichées en une seule ligne (ex. : 09:00 → 12:30 | 13:30 → 17:00)
-- Chaque session affiche : heure d'arrivée, heure de départ, durée et statut
-- Durée totale quotidienne : somme de toutes les sessions du jour
-- Statut principal : "En cours" si une session est ouverte, "Terminé" sinon
-- Restriction : une seule session peut être "en_cours" simultanément (pas de chevauchement)
-
-**Statistiques mensuelles**
-- Nombre total de pointages
-- Durée moyenne de travail
-- Nombre de présents/absents du jour (admin/manager)
-- Pointages par statut
-
 ## 📈 Statistiques disponibles
 
 - Nombre total de pointages
@@ -215,7 +196,6 @@ frontend/
 - Durée moyenne de travail
 - Durée totale
 - Présents/Absents du jour (admin)
-- Consolidation par jour et utilisateur pour meilleure lisibilité
 - Filtres par date, utilisateur, statut
 
 ## 🚀 Déploiement
