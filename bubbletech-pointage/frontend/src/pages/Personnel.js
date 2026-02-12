@@ -45,18 +45,26 @@ const Personnel = () => {
   };
 
   const openCreate = () => {
-    setEditingUser({ nom: '', prenom: '', email: '', role: 'personnel', actif: true, password: '', doit_changer_mdp: false });
+    setEditingUser({ nom: '', prenom: '', email: '', role: 'personnel', actif: true, password: '', doit_changer_mdp: false, code_secret: '' });
     setShowForm(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editingUser.id) {
-        await userService.update(editingUser.id, editingUser);
+      const payload = { ...editingUser };
+      if (payload.password === '') {
+        delete payload.password;
+      }
+      if (payload.code_secret === '') {
+        delete payload.code_secret;
+      }
+
+      if (payload.id) {
+        await userService.update(payload.id, payload);
         await loadUsers();
       } else {
-        await userService.create(editingUser);
+        await userService.create(payload);
         await loadUsers();
       }
       setShowForm(false);
@@ -147,6 +155,19 @@ const Personnel = () => {
                 <label>Email</label>
                 <input type="email" value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} required />
               </div>
+              {isAdmin && (
+                <div>
+                  <label>Code secret (4 chiffres)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={editingUser.code_secret || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, code_secret: e.target.value })}
+                    placeholder="0000"
+                  />
+                </div>
+              )}
               <div>
                 <label>Mot de passe (laisser vide pour générer un mot de passe temporaire)</label>
                 <input type="password" value={editingUser.password || ''} onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })} />

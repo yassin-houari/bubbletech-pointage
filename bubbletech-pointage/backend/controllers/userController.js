@@ -31,6 +31,7 @@ const createUser = async (req, res) => {
       role,
       password,
       doit_changer_mdp,
+      code_secret,
       // Données personnel
       poste_id,
       date_embauche,
@@ -82,7 +83,31 @@ const createUser = async (req, res) => {
       hashedPassword = await bcrypt.hash(temporaryPassword, 10);
     }
 
-    const codeSecret = await generateUniqueCode();
+    // Code secret : si fourni, valider et vérifier l'unicité
+    let codeSecret;
+    if (code_secret) {
+      if (!/^\d{4}$/.test(code_secret)) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Code secret invalide (4 chiffres requis)'
+        });
+      }
+      const [existingCode] = await connection.query(
+        'SELECT id FROM users WHERE code_secret = ?',
+        [code_secret]
+      );
+      if (existingCode.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          message: 'Ce code secret est deja utilise'
+        });
+      }
+      codeSecret = code_secret;
+    } else {
+      codeSecret = await generateUniqueCode();
+    }
 
     // doit_changer_mdp : si fourni, respecter ; sinon forcer si mot de passe généré
     const forceChange = typeof doit_changer_mdp !== 'undefined' ? !!doit_changer_mdp : (temporaryPassword !== null);
@@ -294,6 +319,7 @@ const updateUser = async (req, res) => {
       actif,
       password,
       doit_changer_mdp,
+      code_secret,
       // Données personnel
       poste_id,
       date_embauche,
@@ -332,6 +358,28 @@ const updateUser = async (req, res) => {
     if (email) {
       updateFields.push('email = ?');
       updateValues.push(email);
+    }
+    if (typeof code_secret !== 'undefined' && code_secret !== null && code_secret !== '' && code_secret !== user.code_secret) {
+      if (!/^\d{4}$/.test(code_secret)) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Code secret invalide (4 chiffres requis)'
+        });
+      }
+      const [existingCode] = await connection.query(
+        'SELECT id FROM users WHERE code_secret = ? AND id != ?',
+        [code_secret, id]
+      );
+      if (existingCode.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          message: 'Ce code secret est deja utilise'
+        });
+      }
+      updateFields.push('code_secret = ?');
+      updateValues.push(code_secret);
     }
     if (typeof req.body.role !== 'undefined' && req.body.role !== user.role) {
       updateFields.push('role = ?');
