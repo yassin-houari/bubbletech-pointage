@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
 import { FiClock, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle } from 'react-icons/fi';
@@ -10,6 +10,8 @@ const Pointage = () => {
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   const handleCodeChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -35,6 +37,22 @@ const Pointage = () => {
     }
     
     setLoading(false);
+    if (result.success) {
+      loadSessions(result.user.id);
+    }
+  };
+
+  const loadSessions = async (userId) => {
+    setLoadingSessions(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const resp = await pointageService.getAll({ user_id: userId, date_debut: today, date_fin: today });
+      setSessions(resp.data.pointages || []);
+    } catch (err) {
+      console.error('Erreur chargement sessions:', err);
+      setSessions([]);
+    }
+    setLoadingSessions(false);
   };
 
   const handleCheckIn = async () => {
@@ -42,9 +60,11 @@ const Pointage = () => {
     try {
       const response = await pointageService.checkIn(user.id);
       if (response.data.success) {
+        const checkinAt = new Date(response.data.pointage.checkin_at);
+        const timeStr = checkinAt.toLocaleTimeString();
         setMessage({ 
           type: 'success', 
-          text: `Check-in enregistré à ${response.data.pointage.heure_checkin}` 
+          text: `Check-in enregistré à ${timeStr}` 
         });
         setTimeout(() => resetForm(), 3000);
       }
@@ -93,6 +113,11 @@ const Pointage = () => {
       }
     }
   };
+
+  useEffect(() => {
+    if (user) loadSessions(user.id);
+    else setSessions([]);
+  }, [user]);
 
   return (
     <div className="pointage-container">
@@ -174,6 +199,47 @@ const Pointage = () => {
             >
               Changer d'utilisateur
             </button>
+            
+            <div className="sessions-section">
+              <h3>Sessions d'aujourd'hui</h3>
+              {loadingSessions ? (
+                <p>Chargement...</p>
+              ) : sessions.length === 0 ? (
+                <p>Aucune session aujourd'hui</p>
+              ) : (
+                <div className="sessions-list">
+                  {sessions.map((s) => (
+                    <div key={s.id} className="session-card">
+                      <div className="session-times">
+                        <strong>Arrivée:</strong> {s.checkin_at ? new Date(s.checkin_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-'}
+                        {'  '}|{'  '}
+                        <strong>Départ:</strong> {s.checkout_at ? new Date(s.checkout_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'En cours'}
+                      </div>
+                      <div className="session-meta">
+                        <span>Durée: {s.duree_travail_minutes ? `${Math.floor(s.duree_travail_minutes/60)}h${s.duree_travail_minutes%60}m` : '-'}</span>
+                        <span style={{marginLeft: '1rem'}}>Statut: {s.statut}</span>
+                      </div>
+                      {s.pauses && s.pauses.length > 0 && (
+                        <div className="session-pauses">
+                          <em>Pauses:</em>
+                          <ul>
+                            {s.pauses.map((p) => (
+                              <li key={p.id}>
+                                {p.debut_at ? new Date(p.debut_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-'}
+                                {' → '}
+                                {p.fin_at ? new Date(p.fin_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'En cours'}
+                                {' ('}{p.duree_minutes ? `${p.duree_minutes}m` : '-'}{')'}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => loadSessions(user.id)} className="btn btn-sm">Rafraîchir</button>
+            </div>
           </div>
         )}
 
