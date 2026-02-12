@@ -24,7 +24,14 @@ function App() {
             <Routes>
               {/* Routes publiques */}
               <Route path="/login" element={<Login />} />
-              <Route path="/pointage" element={<Pointage />} />
+              <Route
+                path="/pointage"
+                element={
+                  <ProtectedRoute>
+                    <Pointage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/change-password"
                 element={

@@ -5,9 +5,9 @@ import { FiClock, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle } from 'react-icons
 import '../styles/Pointage.css';
 
 const Pointage = () => {
-  const { loginWithCode } = useAuth();
+  const { loginWithCode, user } = useAuth();
   const [code, setCode] = useState('');
-  const [user, setUser] = useState(null);
+  const [isVerified, setIsVerified] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState([]);
@@ -29,8 +29,8 @@ const Pointage = () => {
     const result = await loginWithCode(code);
     
     if (result.success) {
-      setUser(result.user);
-      setMessage({ type: 'success', text: `Bonjour ${result.user.prenom} ${result.user.nom}` });
+      setIsVerified(true);
+      setMessage({ type: 'success', text: `Bonjour ${user.prenom} ${user.nom}` });
     } else {
       setMessage({ type: 'error', text: result.message });
       setCode('');
@@ -38,7 +38,7 @@ const Pointage = () => {
     
     setLoading(false);
     if (result.success) {
-      loadSessions(result.user.id);
+      loadSessions(user.id);
     }
   };
 
@@ -58,7 +58,7 @@ const Pointage = () => {
   const handleCheckIn = async () => {
     setLoading(true);
     try {
-      const response = await pointageService.checkIn(user.id);
+      const response = await pointageService.checkIn();
       if (response.data.success) {
         const checkinAt = new Date(response.data.pointage.checkin_at);
         const timeStr = checkinAt.toLocaleTimeString();
@@ -80,7 +80,7 @@ const Pointage = () => {
   const handleCheckOut = async () => {
     setLoading(true);
     try {
-      const response = await pointageService.checkOut(user.id);
+      const response = await pointageService.checkOut();
       if (response.data.success) {
         const minutes = response.data.pointage.duree_travail_minutes;
         const heures = Math.floor(minutes / 60);
@@ -102,22 +102,22 @@ const Pointage = () => {
 
   const resetForm = () => {
     setCode('');
-    setUser(null);
+    setIsVerified(false);
     setMessage({ type: '', text: '' });
   };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      if (!user && code.length === 4) {
+      if (!isVerified && code.length === 4) {
         handleAuthenticate();
       }
     }
   };
 
   useEffect(() => {
-    if (user) loadSessions(user.id);
+    if (isVerified) loadSessions(user.id);
     else setSessions([]);
-  }, [user]);
+  }, [isVerified, user]);
 
   return (
     <div className="pointage-container">
@@ -135,7 +135,7 @@ const Pointage = () => {
           </div>
         )}
 
-        {!user ? (
+        {!isVerified ? (
           <div className="code-input-section">
             <input
               type="text"
@@ -197,7 +197,7 @@ const Pointage = () => {
               onClick={resetForm}
               className="btn btn-secondary"
             >
-              Changer d'utilisateur
+              Reinitialiser le code
             </button>
             
             <div className="sessions-section">
