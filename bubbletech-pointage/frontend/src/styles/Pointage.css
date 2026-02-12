@@ -48,9 +48,25 @@
 }
 
 .code-input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.5rem;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  transition: all 0.3s ease;
+  margin-bottom: 1.5rem;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: #4F46E5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.code-input::placeholder {
+  color: #D1D5DB;
 }
 
 .code-display {
