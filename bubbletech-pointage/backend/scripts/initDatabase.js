@@ -133,39 +133,40 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table equipes créée');
 
-    // Table Pointage (avec support multi-pauses)
+    // Table Pointage (supporte plusieurs sessions par jour)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS pointages (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         date_pointage DATE NOT NULL,
-        heure_checkin TIME NOT NULL,
-        heure_checkout TIME,
+        checkin_at DATETIME NOT NULL,
+        checkout_at DATETIME,
         statut ENUM('en_cours', 'termine', 'incomplet') DEFAULT 'en_cours',
         duree_travail_minutes INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_user_date (user_id, date_pointage),
-        INDEX idx_date (date_pointage)
+        INDEX idx_user_statut (user_id, statut),
+        INDEX idx_checkin_at (checkin_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Table pointages créée');
+    console.log('✅ Table pointages créée (avec checkin_at/checkout_at)');
 
-    // Table Pauses (gestion de plusieurs pauses par jour)
+    // Table Pauses (gestion de plusieurs pauses par session)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS pauses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         pointage_id INT NOT NULL,
-        heure_debut TIME NOT NULL,
-        heure_fin TIME,
+        debut_at DATETIME NOT NULL,
+        fin_at DATETIME,
         duree_minutes INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (pointage_id) REFERENCES pointages(id) ON DELETE CASCADE,
         INDEX idx_pointage (pointage_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Table pauses créée');
+    console.log('✅ Table pauses créée (avec debut_at/fin_at)');
 
     // Table Notifications
     await connection.query(`
