@@ -102,7 +102,7 @@ VALUES (
   'Admin',
   'Super',
   'admin@bubbletech.be',
-  '$2a$10$YourHashedPasswordHere',  -- Voir ci-dessous pour générer
+  '$2a$10$8BaFczR5zkkdjLlTW5Z6s.KlNil5sfQbz3VZglTH3b4H9dUkqDCH',  -- Voir ci-dessous pour générer le hash
   'admin',
   '0000',
   true,
@@ -114,7 +114,7 @@ Pour générer le hash du mot de passe :
 
 ```bash
 cd backend
-node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('Admin123!', 10));"
+node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('Admin123\!', 10));"
 ```
 
 ### Option 2 : Utiliser l'API
