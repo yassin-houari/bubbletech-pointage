@@ -16,6 +16,10 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 *.log
+DEBUG.md
+start-debug.ps1
+start-debug.sh
+
 
 # Build outputs
 build/
