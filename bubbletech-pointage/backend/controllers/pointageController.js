@@ -9,28 +9,28 @@ const checkIn = async (req, res) => {
 
     const { user_id } = req.body;
     const userId = user_id || req.user.id;
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
 
-    // Vérifier si un pointage existe déjà aujourd'hui
-    const [existingPointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND date_pointage = ?',
-      [userId, today]
+    // Vérifier s'il existe une session en cours (empêcher les sessions imbriquées)
+    const [openSessions] = await connection.query(
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours"',
+      [userId]
     );
 
-    if (existingPointages.length > 0) {
+    if (openSessions.length > 0) {
       await connection.rollback();
       return res.status(400).json({ 
         success: false, 
-        message: 'Vous avez déjà pointé aujourd\'hui' 
+        message: 'Vous avez déjà une session en cours. Faites un check-out avant de commencer une nouvelle session.' 
       });
     }
 
-    // Créer le pointage
-    const heureCheckin = new Date().toTimeString().split(' ')[0];
+    // Créer une nouvelle session de pointage (plusieurs sessions/jour autorisées)
     const [result] = await connection.query(
-      `INSERT INTO pointages (user_id, date_pointage, heure_checkin, statut) 
+      `INSERT INTO pointages (user_id, date_pointage, checkin_at, statut) 
        VALUES (?, ?, ?, 'en_cours')`,
-      [userId, today, heureCheckin]
+      [userId, today, now]
     );
 
     await connection.commit();
@@ -42,7 +42,7 @@ const checkIn = async (req, res) => {
         id: result.insertId,
         user_id: userId,
         date_pointage: today,
-        heure_checkin: heureCheckin,
+        checkin_at: now,
         statut: 'en_cours'
       }
     });
@@ -68,28 +68,26 @@ const checkOut = async (req, res) => {
 
     const { user_id } = req.body;
     const userId = user_id || req.user.id;
-    const today = new Date().toISOString().split('T')[0];
-
-    // Récupérer le pointage du jour
+    // Récupérer la session en cours la plus récente (permet sessions traversant minuit)
     const [pointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND date_pointage = ? AND statut = "en_cours"',
-      [userId, today]
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
+      [userId]
     );
 
     if (pointages.length === 0) {
       await connection.rollback();
       return res.status(400).json({ 
         success: false, 
-        message: 'Aucun check-in trouvé pour aujourd\'hui' 
+        message: 'Aucune session en cours trouvée' 
       });
     }
 
     const pointage = pointages[0];
-    const heureCheckout = new Date().toTimeString().split(' ')[0];
+    const checkoutAt = new Date();
 
-    // Calculer la durée totale de travail (en minutes)
-    const checkinTime = new Date(`${today} ${pointage.heure_checkin}`);
-    const checkoutTime = new Date(`${today} ${heureCheckout}`);
+    // Calculer la durée totale de travail (en minutes). Utiliser les timestamps complets
+    const checkinTime = new Date(pointage.checkin_at);
+    const checkoutTime = checkoutAt;
     let dureeTravailMinutes = Math.floor((checkoutTime - checkinTime) / 60000);
 
     // Soustraire les pauses
@@ -105,9 +103,9 @@ const checkOut = async (req, res) => {
     // Mettre à jour le pointage
     await connection.query(
       `UPDATE pointages 
-       SET heure_checkout = ?, statut = 'termine', duree_travail_minutes = ?
+       SET checkout_at = ?, statut = 'termine', duree_travail_minutes = ?
        WHERE id = ?`,
-      [heureCheckout, dureeTravailMinutes, pointage.id]
+      [checkoutAt, dureeTravailMinutes, pointage.id]
     );
 
     await connection.commit();
@@ -116,11 +114,11 @@ const checkOut = async (req, res) => {
       success: true,
       message: 'Check-out enregistré avec succès',
       pointage: {
-        id: pointage.id,
-        heure_checkout: heureCheckout,
-        duree_travail_minutes: dureeTravailMinutes,
-        statut: 'termine'
-      }
+          id: pointage.id,
+          checkout_at: checkoutAt,
+          duree_travail_minutes: dureeTravailMinutes,
+          statut: 'termine'
+        }
     });
 
   } catch (error) {
@@ -143,19 +141,18 @@ const startBreak = async (req, res) => {
     await connection.beginTransaction();
 
     const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
 
-    // Récupérer le pointage du jour
+    // Récupérer la session en cours la plus récente
     const [pointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND date_pointage = ? AND statut = "en_cours"',
-      [userId, today]
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
+      [userId]
     );
 
     if (pointages.length === 0) {
       await connection.rollback();
       return res.status(400).json({ 
         success: false, 
-        message: 'Aucun check-in actif trouvé' 
+        message: 'Aucune session en cours trouvée' 
       });
     }
 
@@ -163,7 +160,7 @@ const startBreak = async (req, res) => {
 
     // Vérifier s'il n'y a pas déjà une pause en cours
     const [pausesEnCours] = await connection.query(
-      'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL',
+      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL',
       [pointage.id]
     );
 
@@ -176,10 +173,10 @@ const startBreak = async (req, res) => {
     }
 
     // Créer la pause
-    const heureDebut = new Date().toTimeString().split(' ')[0];
+    const debutAt = new Date();
     const [result] = await connection.query(
-      'INSERT INTO pauses (pointage_id, heure_debut) VALUES (?, ?)',
-      [pointage.id, heureDebut]
+      'INSERT INTO pauses (pointage_id, debut_at) VALUES (?, ?)',
+      [pointage.id, debutAt]
     );
 
     await connection.commit();
@@ -190,7 +187,7 @@ const startBreak = async (req, res) => {
       pause: {
         id: result.insertId,
         pointage_id: pointage.id,
-        heure_debut: heureDebut
+        debut_at: debutAt
       }
     });
 
@@ -214,19 +211,18 @@ const endBreak = async (req, res) => {
     await connection.beginTransaction();
 
     const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
 
-    // Récupérer le pointage du jour
+    // Récupérer la session en cours la plus récente
     const [pointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND date_pointage = ? AND statut = "en_cours"',
-      [userId, today]
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
+      [userId]
     );
 
     if (pointages.length === 0) {
       await connection.rollback();
       return res.status(400).json({ 
         success: false, 
-        message: 'Aucun pointage actif trouvé' 
+        message: 'Aucune session en cours trouvée' 
       });
     }
 
@@ -234,7 +230,7 @@ const endBreak = async (req, res) => {
 
     // Récupérer la pause en cours
     const [pauses] = await connection.query(
-      'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL ORDER BY id DESC LIMIT 1',
+      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL ORDER BY id DESC LIMIT 1',
       [pointage.id]
     );
 
@@ -247,17 +243,17 @@ const endBreak = async (req, res) => {
     }
 
     const pause = pauses[0];
-    const heureFin = new Date().toTimeString().split(' ')[0];
+    const finAt = new Date();
 
-    // Calculer la durée de la pause
-    const debutTime = new Date(`${today} ${pause.heure_debut}`);
-    const finTime = new Date(`${today} ${heureFin}`);
+    // Calculer la durée de la pause (utiliser le timestamp actuel pour gérer traversée de minuit)
+    const debutTime = new Date(pause.debut_at);
+    const finTime = finAt;
     const dureeMinutes = Math.floor((finTime - debutTime) / 60000);
 
     // Mettre à jour la pause
     await connection.query(
-      'UPDATE pauses SET heure_fin = ?, duree_minutes = ? WHERE id = ?',
-      [heureFin, dureeMinutes, pause.id]
+      'UPDATE pauses SET fin_at = ?, duree_minutes = ? WHERE id = ?',
+      [finAt, dureeMinutes, pause.id]
     );
 
     await connection.commit();
@@ -267,7 +263,7 @@ const endBreak = async (req, res) => {
       message: 'Pause terminée',
       pause: {
         id: pause.id,
-        heure_fin: heureFin,
+        fin_at: finAt,
         duree_minutes: dureeMinutes
       }
     });
@@ -336,14 +332,14 @@ const getPointages = async (req, res) => {
       params.push(statut);
     }
 
-    query += ' ORDER BY p.date_pointage DESC, p.heure_checkin DESC';
+    query += ' ORDER BY p.date_pointage DESC, p.checkin_at DESC';
 
     const [pointages] = await pool.query(query, params);
 
     // Récupérer les pauses pour chaque pointage
     for (let pointage of pointages) {
       const [pauses] = await pool.query(
-        'SELECT * FROM pauses WHERE pointage_id = ? ORDER BY heure_debut',
+        'SELECT * FROM pauses WHERE pointage_id = ? ORDER BY debut_at',
         [pointage.id]
       );
       pointage.pauses = pauses;

@@ -7,26 +7,31 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "debug": "DEBUG=bubbletech:* node server.js",
-    "debug-dev": "DEBUG=bubbletech:* nodemon server.js",
+   "debug-dev": "cross-env DEBUG=bubbletech:* nodemon server.js",
     "init-db": "node scripts/initDatabase.js"
   },
-  "keywords": ["pointage", "gestion", "temps"],
+  "keywords": [
+    "pointage",
+    "gestion",
+    "temps"
+  ],
   "author": "BubbleTech",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.5",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
     "axios": "^1.6.2",
-    "joi": "^17.11.0",
-    "helmet": "^7.1.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "debug": "^4.3.4",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
-    "debug": "^4.3.4"
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.6.5"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.0.2"
   }
 }
