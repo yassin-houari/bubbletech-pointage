@@ -74,6 +74,20 @@ export const userService = {
     api.delete(`/users/${id}`)
 };
 
+export const departementService = {
+  getAll: () =>
+    api.get('/departements'),
+  create: (data) =>
+    api.post('/departements', data)
+};
+
+export const posteService = {
+  getAll: () =>
+    api.get('/postes'),
+  create: (data) =>
+    api.post('/postes', data)
+};
+
 // Services de pointage
 export const pointageService = {
   checkIn: (user_id) => 

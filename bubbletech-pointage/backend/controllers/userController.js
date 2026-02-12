@@ -17,6 +17,39 @@ const generateUniqueCode = async () => {
   return code;
 };
 
+const getOrCreateDepartement = async (connection, nom) => {
+  const [existing] = await connection.query(
+    'SELECT id FROM departements WHERE nom = ?',
+    [nom]
+  );
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const [result] = await connection.query(
+    'INSERT INTO departements (nom) VALUES (?)',
+    [nom]
+  );
+  return result.insertId;
+};
+
+const getOrCreatePoste = async (connection, posteNom, departementNom = 'General') => {
+  const departementId = await getOrCreateDepartement(connection, departementNom);
+  const [existing] = await connection.query(
+    'SELECT id FROM postes WHERE nom = ? AND departement_id = ?',
+    [posteNom, departementId]
+  );
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const [result] = await connection.query(
+    'INSERT INTO postes (nom, departement_id) VALUES (?, ?)',
+    [posteNom, departementId]
+  );
+  return result.insertId;
+};
+
 // Créer un utilisateur (personnel ou stagiaire)
 const createUser = async (req, res) => {
   const connection = await pool.getConnection();
@@ -34,6 +67,7 @@ const createUser = async (req, res) => {
       code_secret,
       // Données personnel
       poste_id,
+      poste_nom,
       date_embauche,
       salaire,
       // Données stagiaire
@@ -123,7 +157,12 @@ const createUser = async (req, res) => {
 
     // Créer les données spécifiques selon le rôle
     if (role === 'personnel') {
-      if (!poste_id || !date_embauche) {
+      let resolvedPosteId = poste_id;
+      if (!resolvedPosteId && poste_nom) {
+        resolvedPosteId = await getOrCreatePoste(connection, poste_nom);
+      }
+
+      if (!resolvedPosteId || !date_embauche) {
         await connection.rollback();
         return res.status(400).json({ 
           success: false, 
@@ -133,7 +172,7 @@ const createUser = async (req, res) => {
 
       await connection.query(
         'INSERT INTO personnel (user_id, poste_id, date_embauche, salaire) VALUES (?, ?, ?, ?)',
-        [userId, poste_id, date_embauche, salaire || null]
+        [userId, resolvedPosteId, date_embauche, salaire || null]
       );
     } else if (role === 'stagiaire') {
       if (!date_debut || !date_fin) {
@@ -199,8 +238,8 @@ const getAllUsers = async (req, res) => {
     
     // Base query: join role-specific tables to provide useful metadata
     let query = `
-      SELECT u.*, 
-             p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
+            SELECT u.*, 
+              p.poste_id, po.nom as poste_nom, d.id as departement_id, d.nom as departement_nom,
              p.date_embauche, p.salaire,
              s.date_debut, s.date_fin,
              m.date_nomination
@@ -266,8 +305,8 @@ const getUserById = async (req, res) => {
     const { id } = req.params;
 
     const [users] = await pool.query(
-      `SELECT u.*, 
-              p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
+            `SELECT u.*, 
+              p.poste_id, po.nom as poste_nom, d.id as departement_id, d.nom as departement_nom,
               p.date_embauche, p.salaire,
               s.date_debut, s.date_fin, s.encadrant_id,
               m.date_nomination
@@ -322,6 +361,7 @@ const updateUser = async (req, res) => {
       code_secret,
       // Données personnel
       poste_id,
+      poste_nom,
       date_embauche,
       salaire,
       // Données stagiaire
@@ -460,13 +500,17 @@ const updateUser = async (req, res) => {
     }
 
     // Mettre à jour les données spécifiques
-    if (user.role === 'personnel' && (poste_id || date_embauche || salaire !== undefined)) {
+    if (user.role === 'personnel' && (poste_id || poste_nom || date_embauche || salaire !== undefined)) {
       const personnelFields = [];
       const personnelValues = [];
 
       if (poste_id) {
         personnelFields.push('poste_id = ?');
         personnelValues.push(poste_id);
+      } else if (poste_nom) {
+        const resolvedPosteId = await getOrCreatePoste(connection, poste_nom);
+        personnelFields.push('poste_id = ?');
+        personnelValues.push(resolvedPosteId);
       }
       if (date_embauche) {
         personnelFields.push('date_embauche = ?');
