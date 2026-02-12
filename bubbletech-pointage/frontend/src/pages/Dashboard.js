@@ -53,6 +53,51 @@ const Dashboard = () => {
     return `${hours}h${mins.toString().padStart(2, '0')}`;
   };
 
+  const groupPointagesByDateAndUser = (pointages) => {
+    // Group by date-user and aggregate total duration
+    const grouped = {};
+    pointages.forEach((p) => {
+      const key = `${p.date_pointage}:${p.user_id}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          date_pointage: p.date_pointage,
+          user_id: p.user_id,
+          prenom: p.prenom,
+          nom: p.nom,
+          email: p.email,
+          sessionCount: 0,
+          duree_totale_minutes: 0,
+          statut_principal: 'termine',
+          checkin_at: null,
+          checkout_at: null
+        };
+      }
+      grouped[key].sessionCount += 1;
+      grouped[key].duree_totale_minutes += (p.duree_travail_minutes || 0);
+      
+      // Track earliest checkin and latest checkout
+      if (p.checkin_at) {
+        const checkinDate = new Date(p.checkin_at);
+        if (!grouped[key].checkin_at || checkinDate < new Date(grouped[key].checkin_at)) {
+          grouped[key].checkin_at = p.checkin_at;
+        }
+      }
+      if (p.checkout_at) {
+        const checkoutDate = new Date(p.checkout_at);
+        if (!grouped[key].checkout_at || checkoutDate > new Date(grouped[key].checkout_at)) {
+          grouped[key].checkout_at = p.checkout_at;
+        }
+      }
+      
+      // If any session is en_cours, mark principal status as en_cours
+      if (p.statut === 'en_cours') {
+        grouped[key].statut_principal = 'en_cours';
+      }
+    });
+    
+    return Object.values(grouped);
+  };
+
   const getTodayAttendance = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const todayPointages = pointages.filter(p => p.date_pointage === today);
@@ -153,26 +198,29 @@ const Dashboard = () => {
                   <th>Date</th>
                   <th>Arrivée</th>
                   <th>Départ</th>
-                  <th>Durée</th>
+                  <th>Durée totale</th>
                   <th>Statut</th>
                 </tr>
               </thead>
               <tbody>
-                {pointages.slice(0, 10).map((pointage) => (
-                  <tr key={pointage.id}>
+                {groupPointagesByDateAndUser(pointages).slice(0, 10).map((group) => (
+                  <tr key={`${group.date_pointage}:${group.user_id}`}>
                     {isAdminOrManager && (
-                      <td>{pointage.prenom} {pointage.nom}</td>
+                      <td>{group.prenom} {group.nom}</td>
                     )}
                     <td>
-                      {format(new Date(pointage.date_pointage), 'dd MMMM yyyy', { locale: fr })}
+                      {format(new Date(group.date_pointage), 'dd MMMM yyyy', { locale: fr })}
                     </td>
-                    <td>{pointage.checkin_at ? format(new Date(pointage.checkin_at), 'HH:mm') : '-'}</td>
-                    <td>{pointage.checkout_at ? format(new Date(pointage.checkout_at), 'HH:mm') : '-'}</td>
-                    <td>{formatDuration(pointage.duree_travail_minutes)}</td>
+                    <td>{group.checkin_at ? format(new Date(group.checkin_at), 'HH:mm') : '-'}</td>
+                    <td>{group.checkout_at ? format(new Date(group.checkout_at), 'HH:mm') : '-'}</td>
                     <td>
-                      <span className={`badge badge-${pointage.statut}`}>
-                        {pointage.statut === 'en_cours' ? 'En cours' :
-                         pointage.statut === 'termine' ? 'Terminé' : 'Incomplet'}
+                      <div>{formatDuration(group.duree_totale_minutes)}</div>
+                      <small style={{color: '#666'}}>({group.sessionCount} session{group.sessionCount > 1 ? 's' : ''})</small>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${group.statut_principal}`}>
+                        {group.statut_principal === 'en_cours' ? 'En cours' :
+                         group.statut_principal === 'termine' ? 'Terminé' : 'Incomplet'}
                       </span>
                     </td>
                   </tr>
