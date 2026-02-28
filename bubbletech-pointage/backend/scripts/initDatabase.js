@@ -23,6 +23,10 @@ const initDatabase = async () => {
     // Utiliser la base de données
     await connection.query(`USE ${dbName}`);
 
+    // Nettoyage des anciennes structures
+    await connection.query(`DROP TABLE IF EXISTS specialites_manager`);
+    console.log('✅ Ancienne table specialites_manager supprimée si existante');
+
     // Table User (table mère pour tous les utilisateurs)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -44,13 +48,26 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table users créée');
 
+    // Table Manager
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS managers (
+        user_id INT PRIMARY KEY,
+        date_nomination DATE NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Table managers créée');
+
     // Table Département (pour normalisation 3NF)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS departements (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nom VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
-        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        manager_id INT,
+        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (manager_id) REFERENCES managers(user_id) ON DELETE SET NULL,
+        INDEX idx_manager_id (manager_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table departements créée');
@@ -95,29 +112,6 @@ const initDatabase = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table stagiaires créée');
-
-    // Table Manager
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS managers (
-        user_id INT PRIMARY KEY,
-        date_nomination DATE NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table managers créée');
-
-    // Table SpecialiteManager
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS specialites_manager (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        manager_id INT NOT NULL,
-        specialite VARCHAR(100) NOT NULL,
-        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (manager_id) REFERENCES managers(user_id) ON DELETE CASCADE,
-        UNIQUE KEY unique_manager_specialite (manager_id, specialite)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table specialites_manager créée');
 
     // Table Équipe (relation N-N entre managers et membres d'équipe)
     await connection.query(`
