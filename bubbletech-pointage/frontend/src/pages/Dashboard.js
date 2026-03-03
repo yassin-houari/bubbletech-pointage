@@ -26,39 +26,16 @@ const Dashboard = () => {
       const monthStart = format(new Date(new Date().setDate(1)), 'yyyy-MM-dd');
       const weekStart = format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd');
 
+      const statsResponse = await pointageService.getStats({ date_debut: monthStart });
+      setStats(statsResponse.data.stats);
+
       if (isManager) {
+        const weekPointagesResponse = await pointageService.getAll({ date_debut: weekStart });
+        setPointages(weekPointagesResponse.data.pointages || []);
+
         const usersResponse = await userService.getAll({ actif: 'true' });
-        const teamUsers = usersResponse.data.users || [];
-        setAllUsers(teamUsers);
-
-        const teamUserIds = new Set(teamUsers.map((u) => Number(u.id)));
-
-        const [monthPointagesResponse, weekPointagesResponse] = await Promise.all([
-          pointageService.getAll({ date_debut: monthStart }),
-          pointageService.getAll({ date_debut: weekStart })
-        ]);
-
-        const monthPointages = (monthPointagesResponse.data.pointages || []).filter((p) => teamUserIds.has(Number(p.user_id)));
-        const weekPointages = (weekPointagesResponse.data.pointages || []).filter((p) => teamUserIds.has(Number(p.user_id)));
-
-        setPointages(weekPointages);
-
-        const totalPointages = monthPointages.length;
-        const totalDuree = monthPointages.reduce((sum, p) => sum + (p.duree_travail_minutes || 0), 0);
-        const pointagesAvecDuree = monthPointages.filter((p) => Number(p.duree_travail_minutes) > 0).length;
-
-        setStats({
-          total_pointages: totalPointages,
-          pointages_termines: monthPointages.filter((p) => p.statut === 'termine').length,
-          pointages_en_cours: monthPointages.filter((p) => p.statut === 'en_cours').length,
-          pointages_incomplets: monthPointages.filter((p) => p.statut === 'incomplet').length,
-          duree_totale_minutes: totalDuree,
-          duree_moyenne_minutes: pointagesAvecDuree > 0 ? Math.round(totalDuree / pointagesAvecDuree) : 0
-        });
+        setAllUsers(usersResponse.data.users || []);
       } else {
-        const statsResponse = await pointageService.getStats({ date_debut: monthStart });
-        setStats(statsResponse.data.stats);
-
         const pointagesResponse = await pointageService.getAll({ date_debut: weekStart });
         setPointages(pointagesResponse.data.pointages || []);
 
@@ -155,6 +132,10 @@ const Dashboard = () => {
   };
 
   const getTodayAttendance = () => {
+    if (stats && typeof stats.present_today === 'number' && typeof stats.scope_total === 'number') {
+      return { present: stats.present_today, total: stats.scope_total };
+    }
+
     const today = format(new Date(), 'yyyy-MM-dd');
     const todayPointages = pointages.filter((p) => p.date_pointage === today && (p.statut === 'en_cours' || p.statut === 'termine'));
     const present = new Set(todayPointages.map((p) => p.user_id)).size;
@@ -187,7 +168,7 @@ const Dashboard = () => {
                 <FiUsers />
               </div>
               <div className="stat-info">
-                <h3>{allUsers.length}</h3>
+                <h3>{isAdminOrManager && typeof stats?.scope_total === 'number' ? stats.scope_total : allUsers.length}</h3>
                 <p>{isAdmin ? 'Utilisateurs actifs' : 'Membres de l\'équipe'}</p>
               </div>
             </div>
