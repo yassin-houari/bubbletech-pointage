@@ -212,6 +212,99 @@ class BrevoService {
     });
   }
 
+  // Email de rappel de pointage (journée en cours)
+  async sendPointageReminderEmail(user, dateLabel) {
+    const subject = '⏰ Rappel de pointage';
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #2563EB; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-box { background-color: white; padding: 20px; border-left: 4px solid #2563EB; margin: 20px 0; }
+          .button { display: inline-block; padding: 12px 30px; background-color: #2563EB; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Rappel de pointage</h1>
+          </div>
+          <div class="content">
+            <p>Bonjour <strong>${user.prenom} ${user.nom}</strong>,</p>
+            <p>Nous n'avons détecté aucun pointage pour la journée du <strong>${dateLabel}</strong>.</p>
+            <div class="info-box">
+              <p>Merci d'effectuer votre check-in/check-out si vous êtes en activité aujourd'hui.</p>
+            </div>
+            <p style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL}/pointage" class="button">Ouvrir le pointage</a>
+            </p>
+            <p>Cordialement,<br><strong>L'équipe BubbleTech</strong></p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: user.email,
+      subject,
+      htmlContent
+    });
+  }
+
+  // Alerte administrative quotidienne (synthèse absences)
+  async sendAdminDailyAlertEmail(adminUser, { dateLabel, missingCount, sampleUsers }) {
+    const subject = `🚨 Alerte administrateur - ${missingCount} absence(s) de pointage`;
+    const sampleList = (sampleUsers || [])
+      .map((u) => `<li>${u.prenom} ${u.nom} (${u.email})</li>`)
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 650px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #7C2D12; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+          .stat-box { background-color: white; padding: 20px; border-left: 4px solid #7C2D12; margin: 20px 0; }
+          .button { display: inline-block; padding: 12px 30px; background-color: #7C2D12; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Alerte administrative</h1>
+          </div>
+          <div class="content">
+            <p>Bonjour <strong>${adminUser.prenom} ${adminUser.nom}</strong>,</p>
+            <div class="stat-box">
+              <p><strong>Date:</strong> ${dateLabel}</p>
+              <p><strong>Utilisateurs sans pointage:</strong> ${missingCount}</p>
+            </div>
+            ${sampleUsers && sampleUsers.length > 0 ? `<p>Exemples:</p><ul>${sampleList}</ul>` : ''}
+            <p style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL}/dashboard" class="button">Ouvrir le dashboard</a>
+            </p>
+            <p>Cordialement,<br><strong>Système BubbleTech Pointage</strong></p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: adminUser.email,
+      subject,
+      htmlContent
+    });
+  }
+
   // Méthode utilitaire pour retirer les balises HTML
   stripHtml(html) {
     return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();

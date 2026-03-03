@@ -9,6 +9,7 @@
     "debug": "DEBUG=bubbletech:* node server.js",
    "debug-dev": "cross-env DEBUG=bubbletech:* nodemon server.js",
     "test": "jest --runInBand",
+    "test:brevo-live": "node scripts/testBrevoEmail.js",
     "init-db": "node scripts/initDatabase.js"
   },
   "keywords": [
