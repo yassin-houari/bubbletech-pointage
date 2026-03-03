@@ -392,7 +392,7 @@ Propriété de BubbleTech ASBL. Tous droits réservés.
 
 ## 📞 Support
 
-Pour toute question : support@bubbletech.be
+Pour toute question : yassinhoua123@gmail.com
 
 ---
 
