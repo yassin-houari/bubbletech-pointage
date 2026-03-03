@@ -13,7 +13,7 @@ const api = axios.create({
 // Intercepteur pour ajouter le token à chaque requête
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('pointage_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,10 +29,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expiré ou invalide
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const hasFullSession = !!localStorage.getItem('token');
+      if (hasFullSession) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      sessionStorage.removeItem('pointage_token');
+      sessionStorage.removeItem('pointage_user');
     }
     return Promise.reject(error);
   }
@@ -42,6 +46,9 @@ api.interceptors.response.use(
 export const authService = {
   login: (email, password) => 
     api.post('/auth/login', { email, password }),
+
+  pointageDirectLogin: (code_secret) =>
+    api.post('/auth/pointage-direct', { code_secret }),
   
   loginWithCode: (code_secret) => 
     api.post('/auth/login-code', { code_secret }),

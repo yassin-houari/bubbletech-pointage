@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const posteController = require('../controllers/posteController');
-const { verifyToken, isAdmin, isAdminOrManager } = require('../middleware/auth');
+const { verifyToken, isAdmin, isAdminOrManager, requireFullAccess } = require('../middleware/auth');
 
 router.use(verifyToken);
+router.use(requireFullAccess);
 
 router.get('/', isAdminOrManager, posteController.getAllPostes);
 router.post('/', isAdmin, posteController.createPoste);

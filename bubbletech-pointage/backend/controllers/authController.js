@@ -4,14 +4,16 @@ const { pool } = require('../config/database');
 const brevoService = require('../services/brevoService');
 
 // Générer un token JWT
-const generateToken = (user) => {
+const generateToken = (user, options = {}) => {
+  const { pointageOnly = false } = options;
   return jwt.sign(
     { 
       id: user.id, 
       email: user.email, 
       role: user.role,
       nom: user.nom,
-      prenom: user.prenom
+      prenom: user.prenom,
+      pointage_only: pointageOnly
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '24h' }
@@ -66,7 +68,7 @@ const login = async (req, res) => {
     }
 
     // Générer le token
-    const token = generateToken(user);
+    const token = generateToken(user, { pointageOnly: true });
 
     // Retourner les informations utilisateur (sans le mot de passe)
     const { password: _, ...userWithoutPassword } = user;
@@ -134,6 +136,49 @@ const loginWithCode = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Erreur serveur lors de la verification' 
+    });
+  }
+};
+
+// Login direct pour pointage (avant connexion classique)
+const loginWithCodeDirect = async (req, res) => {
+  try {
+    const { code_secret } = req.body;
+
+    if (!code_secret || !/^\d{4}$/.test(code_secret)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code secret invalide (4 chiffres requis)'
+      });
+    }
+
+    const [users] = await pool.query(
+      'SELECT * FROM users WHERE code_secret = ? AND actif = true LIMIT 1',
+      [code_secret]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Code secret incorrect'
+      });
+    }
+
+    const user = users[0];
+    const token = generateToken(user);
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      success: true,
+      message: 'Connexion pointage réussie',
+      token,
+      user: userWithoutPassword
+    });
+  } catch (error) {
+    console.error('Erreur lors de la connexion directe au pointage:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la connexion pointage'
     });
   }
 };
@@ -368,6 +413,7 @@ const getProfile = async (req, res) => {
 module.exports = {
   login,
   loginWithCode,
+  loginWithCodeDirect,
   requestPasswordReset,
   changePassword,
   changeSecretCode,

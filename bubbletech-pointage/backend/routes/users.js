@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const { verifyToken, isAdmin, isAdminOrManager, checkRole } = require('../middleware/auth');
+const { verifyToken, isAdmin, isAdminOrManager, checkRole, requireFullAccess } = require('../middleware/auth');
 
 // Toutes les routes nécessitent authentification
 router.use(verifyToken);
+router.use(requireFullAccess);
 
 // Routes admin uniquement
 router.post('/', isAdmin, userController.createUser);
