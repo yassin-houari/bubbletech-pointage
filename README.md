@@ -141,25 +141,8 @@ La base de données est normalisée en 3ème forme normale (3NF) :
 - `stagiaires` - Données spécifiques aux stagiaires
 - `managers` - Managers et leurs spécialités
 - `pointages` - Enregistrements de présence
-- `pauses` - Pauses multiples par jour
 - `notifications` - Notifications système
 - `logs` - Audit trail
-
-### Diagramme relationnel
-
-```
-users (1) ──┬── (1) personnel ── (N) postes ── (N) departements
-            ├── (1) stagiaires
-            └── (1) managers ── (N) specialites_manager
-
-users (N) ── (1) departements (via users.departement_id)
-
-pointages (N) ── (1) users
-          └── (N) pauses
-
-notifications (N) ── (1) users
-logs (N) ── (1) users
-```
 
 ## 🔐 Authentification & Sécurité
 
@@ -205,8 +188,6 @@ DELETE /api/users/:id       # Supprimer utilisateur (Admin)
 ```
 POST   /api/pointages/checkin      # Check-in
 POST   /api/pointages/checkout     # Check-out
-POST   /api/pointages/break/start  # Début pause
-POST   /api/pointages/break/end    # Fin pause
 GET    /api/pointages              # Liste pointages (filtrable)
 GET    /api/pointages/stats        # Statistiques
 ```
@@ -261,31 +242,6 @@ Content-Type: application/json
 3. Configurer l'email expéditeur vérifié
 4. Ajouter la clé dans `.env`
 
-## 🎨 Interface utilisateur
-
-### Pages principales
-
-1. **Login** (`/login`)
-   - Connexion email/password
-   - Lien vers pointage rapide
-   - Lien mot de passe oublié
-
-2. **Pointage rapide** (`/pointage`)
-   - Interface code PIN
-   - Check-in/Check-out
-   - Feedback visuel immédiat
-
-3. **Dashboard** (`/dashboard`)
-   - Statistiques globales (Admin)
-   - Présences du jour
-   - Pointages récents
-   - Actions rapides
-
-4. **Gestion du personnel** (`/users`) *(Admin uniquement)*
-   - Liste des utilisateurs
-   - Création/Modification/Suppression
-   - Filtres et recherche
-
 ## 🧪 Tests
 
 ### Test manuel de l'API
@@ -324,55 +280,6 @@ VALUES (
 ```
 
 Ou utiliser le endpoint POST /api/users avec un compte admin existant.
-
-### Sauvegardes
-
-```bash
-# Sauvegarde MySQL
-mysqldump -u root -p bubbletech_pointage > backup_$(date +%Y%m%d).sql
-
-# Restauration
-mysql -u root -p bubbletech_pointage < backup_20240101.sql
-```
-
-## 📊 Monitoring
-
-Les logs sont enregistrés dans la table `logs` :
-- Actions utilisateur
-- Tentatives de connexion
-- Erreurs système
-- IP et User-Agent
-
-Consulter les logs :
-
-```sql
-SELECT * FROM logs 
-ORDER BY date_action DESC 
-LIMIT 100;
-```
-
-## 🐛 Dépannage
-
-### Problème de connexion à MySQL
-
-```bash
-# Vérifier que MySQL est démarré
-sudo systemctl status mysql
-
-# Vérifier les credentials dans .env
-# Tester la connexion
-mysql -u root -p
-```
-
-### Erreur CORS
-
-Vérifier que `FRONTEND_URL` dans `.env` backend correspond à l'URL du frontend.
-
-### Emails non envoyés
-
-1. Vérifier la clé API Brevo
-2. Vérifier que l'email expéditeur est vérifié
-3. Consulter les logs backend
 
 ## 📝 TODO / Améliorations futures
 
