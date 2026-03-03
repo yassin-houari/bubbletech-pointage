@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 
 // Pages
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import Pointage from './pages/Pointage';
 import Dashboard from './pages/Dashboard';
 import Personnel from './pages/Personnel';
@@ -25,7 +26,8 @@ function App() {
             <Routes>
               {/* Routes publiques */}
               <Route path="/login" element={<Login />} />
-                  <Route path="/pointage" element={<Pointage />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/pointage" element={<Pointage />} />
               <Route
                 path="/change-password"
                 element={
