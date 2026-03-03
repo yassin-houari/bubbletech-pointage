@@ -485,6 +485,20 @@ const updateUser = async (req, res) => {
       });
     }
 
+    if (
+      req.user?.role === 'admin' &&
+      Number(id) !== Number(req.user.id) &&
+      typeof password !== 'undefined' &&
+      password !== null &&
+      password !== ''
+    ) {
+      await connection.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Un admin ne peut pas modifier le mot de passe d\'un autre utilisateur'
+      });
+    }
+
     // Mettre à jour les données de base
     const updateFields = [];
     const updateValues = [];

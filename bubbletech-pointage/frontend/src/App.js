@@ -10,6 +10,7 @@ import Pointage from './pages/Pointage';
 import Dashboard from './pages/Dashboard';
 import Personnel from './pages/Personnel';
 import ChangePassword from './pages/ChangePassword';
+import Profile from './pages/Profile';
 
 // Styles
 import './styles/App.css';
@@ -55,6 +56,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Personnel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
                   </ProtectedRoute>
                 }
               />

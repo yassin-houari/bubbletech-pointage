@@ -51,6 +51,9 @@ export const authService = {
   
   changePassword: (oldPassword, newPassword) => 
     api.post('/auth/change-password', { oldPassword, newPassword }),
+
+  changeSecretCode: (oldCode, newCode) =>
+    api.post('/auth/change-secret-code', { oldCode, newCode }),
   
   getProfile: () => 
     api.get('/auth/profile')

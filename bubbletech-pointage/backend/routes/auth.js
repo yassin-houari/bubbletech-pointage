@@ -10,6 +10,7 @@ router.post('/request-password-reset', authController.requestPasswordReset);
 // Routes protégées
 router.get('/profile', verifyToken, authController.getProfile);
 router.post('/change-password', verifyToken, authController.changePassword);
+router.post('/change-secret-code', verifyToken, authController.changeSecretCode);
 router.post('/login-code', verifyToken, authController.loginWithCode);
 
 module.exports = router;

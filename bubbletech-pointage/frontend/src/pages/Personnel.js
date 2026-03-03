@@ -129,6 +129,7 @@ const Personnel = () => {
   const openEdit = (u) => {
     setEditingUser({
       ...u,
+      password: '',
       date_embauche: u.date_embauche ? format(new Date(u.date_embauche), 'yyyy-MM-dd') : ''
     });
     setSelectedDepartementId(u.departement_id ? String(u.departement_id) : '');
@@ -163,6 +164,7 @@ const Personnel = () => {
     e.preventDefault();
     try {
       const payload = { ...editingUser };
+      const isEdit = !!payload.id;
       if (payload.password === '') {
         delete payload.password;
       }
@@ -212,16 +214,18 @@ const Personnel = () => {
           await loadLookups();
         }
 
-        if (!posteId) {
+        if (!isEdit && !posteId) {
           alert('Veuillez choisir un poste.');
           return;
         }
-        if (!payload.date_embauche) {
+        if (!isEdit && !payload.date_embauche) {
           alert('Veuillez saisir la date d\'embauche.');
           return;
         }
 
-        payload.poste_id = Number(posteId);
+        if (posteId) {
+          payload.poste_id = Number(posteId);
+        }
         delete payload.poste_nom;
       }
 
@@ -407,17 +411,21 @@ const Personnel = () => {
                   />
                 </div>
               )}
-              <div>
-                <label>Mot de passe (laisser vide pour générer un mot de passe temporaire)</label>
-                <input type="password" value={editingUser.password || ''} onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })} />
-              </div>
-              <div>
-                <label>Forcer changement mot de passe</label>
-                <select value={editingUser.doit_changer_mdp ? 'true' : 'false'} onChange={(e) => setEditingUser({ ...editingUser, doit_changer_mdp: e.target.value === 'true' })}>
-                  <option value="false">Non</option>
-                  <option value="true">Oui</option>
-                </select>
-              </div>
+              {!editingUser.id && (
+                <>
+                  <div>
+                    <label>Mot de passe (laisser vide pour générer un mot de passe temporaire)</label>
+                    <input type="password" value={editingUser.password || ''} onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })} />
+                  </div>
+                  <div>
+                    <label>Forcer changement mot de passe</label>
+                    <select value={editingUser.doit_changer_mdp ? 'true' : 'false'} onChange={(e) => setEditingUser({ ...editingUser, doit_changer_mdp: e.target.value === 'true' })}>
+                      <option value="false">Non</option>
+                      <option value="true">Oui</option>
+                    </select>
+                  </div>
+                </>
+              )}
               <div>
                 <label>Rôle</label>
                 {isAdmin ? (
