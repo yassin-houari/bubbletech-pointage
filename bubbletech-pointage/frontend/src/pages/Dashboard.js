@@ -13,6 +13,9 @@ const Dashboard = () => {
   const { user, isAdmin, isManager, isAdminOrManager } = useAuth();
   const [stats, setStats] = useState(null);
   const [pointages, setPointages] = useState([]);
+  const [allPointages, setAllPointages] = useState([]);
+  const [showAllPointages, setShowAllPointages] = useState(false);
+  const [loadingAllPointages, setLoadingAllPointages] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -131,6 +134,26 @@ const Dashboard = () => {
     );
   };
 
+  const loadAllPointages = async () => {
+    setLoadingAllPointages(true);
+    try {
+      const response = await pointageService.getAll({});
+      setAllPointages(response.data.pointages || []);
+    } catch (error) {
+      console.error('Erreur chargement tous les pointages:', error);
+      setAllPointages([]);
+    }
+    setLoadingAllPointages(false);
+  };
+
+  const handleToggleAllPointages = async () => {
+    const next = !showAllPointages;
+    setShowAllPointages(next);
+    if (next && allPointages.length === 0) {
+      await loadAllPointages();
+    }
+  };
+
   const getTodayAttendance = () => {
     if (stats && typeof stats.present_today === 'number' && typeof stats.scope_total === 'number') {
       return { present: stats.present_today, total: stats.scope_total };
@@ -141,6 +164,12 @@ const Dashboard = () => {
     const present = new Set(todayPointages.map((p) => p.user_id)).size;
     return { present, total: allUsers.length };
   };
+
+  const pointagesLabel = isAdmin
+    ? 'Pointage utilisateurs global'
+    : isManager
+      ? 'Pointage équipe global'
+      : 'Mes pointages';
 
   if (loading) {
     return (
@@ -286,13 +315,66 @@ const Dashboard = () => {
             </button>
           )}
           <button 
-            onClick={() => window.location.href = '/my-pointages'} 
+            onClick={handleToggleAllPointages}
             className="btn btn-secondary"
+            type="button"
           >
-            <FiCalendar /> Mes pointages
+            <FiCalendar /> {showAllPointages ? `Masquer ${pointagesLabel.toLowerCase()}` : pointagesLabel}
           </button>
         </div>
       </div>
+
+      {showAllPointages && (
+        <div className="section">
+          <div className="section-header">
+            <h2><FiCalendar /> {pointagesLabel}</h2>
+          </div>
+
+          {loadingAllPointages ? (
+            <div className="loading">Chargement des pointages...</div>
+          ) : allPointages.length === 0 ? (
+            <div className="empty-state">
+              <p>Aucun pointage disponible</p>
+            </div>
+          ) : (
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {isAdminOrManager && <th>Nom</th>}
+                    <th>Date</th>
+                    <th>Sessions (Arrivée → Départ)</th>
+                    <th>Durée totale</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupPointagesByDateAndUser(allPointages).map((group) => (
+                    <tr key={`all:${group.date_pointage}:${group.user_id}`}>
+                      {isAdminOrManager && (
+                        <td>{group.prenom} {group.nom}</td>
+                      )}
+                      <td>
+                        {format(new Date(group.date_pointage), 'dd MMMM yyyy', { locale: fr })}
+                      </td>
+                      <td>{renderSessions(group.sessions)}</td>
+                      <td style={{fontWeight: '500'}}>
+                        {formatDuration(group.duree_totale_minutes)}
+                      </td>
+                      <td>
+                        <span className={`badge badge-${group.statut_principal}`}>
+                          {group.statut_principal === 'en_cours' ? 'En cours' :
+                           group.statut_principal === 'termine' ? 'Terminé' : 'Incomplet'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
