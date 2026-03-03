@@ -497,6 +497,69 @@ const getPointageStats = async (req, res) => {
       params
     );
 
+    let scopeTotal = 0;
+    let presentToday = 0;
+
+    if (requesterRole === 'manager') {
+      const [scopeRows] = await pool.query(
+        `SELECT COUNT(DISTINCT u.id) AS total
+         FROM users u
+         WHERE u.actif = 1
+           AND (
+             u.departement_id IN (SELECT d.id FROM departements d WHERE d.manager_id = ?)
+             OR u.id = ?
+           )`,
+        [requesterId, requesterId]
+      );
+      scopeTotal = scopeRows?.[0]?.total || 0;
+
+      const [presentRows] = await pool.query(
+        `SELECT COUNT(DISTINCT p.user_id) AS present
+         FROM pointages p
+         INNER JOIN users u ON u.id = p.user_id
+         WHERE p.date_pointage = CURDATE()
+           AND p.statut = 'en_cours'
+           AND u.actif = 1
+           AND (
+             u.departement_id IN (SELECT d.id FROM departements d WHERE d.manager_id = ?)
+             OR u.id = ?
+           )`,
+        [requesterId, requesterId]
+      );
+      presentToday = presentRows?.[0]?.present || 0;
+    } else if (requesterRole === 'admin') {
+      const [scopeRows] = await pool.query(
+        'SELECT COUNT(*) AS total FROM users WHERE actif = 1'
+      );
+      scopeTotal = scopeRows?.[0]?.total || 0;
+
+      const [presentRows] = await pool.query(
+        `SELECT COUNT(DISTINCT p.user_id) AS present
+         FROM pointages p
+         INNER JOIN users u ON u.id = p.user_id
+         WHERE p.date_pointage = CURDATE()
+           AND p.statut = 'en_cours'
+           AND u.actif = 1`
+      );
+      presentToday = presentRows?.[0]?.present || 0;
+    } else {
+      scopeTotal = 1;
+      const [presentRows] = await pool.query(
+        `SELECT COUNT(*) AS present
+         FROM pointages
+         WHERE user_id = ?
+           AND date_pointage = CURDATE()
+           AND statut = 'en_cours'`,
+        [requesterId]
+      );
+      presentToday = presentRows?.[0]?.present > 0 ? 1 : 0;
+    }
+
+    const absentToday = Math.max(0, scopeTotal - presentToday);
+    stats[0].scope_total = scopeTotal;
+    stats[0].present_today = presentToday;
+    stats[0].absent_today = absentToday;
+
     res.json({
       success: true,
       stats: stats[0]
