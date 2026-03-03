@@ -332,6 +332,26 @@ body {
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
 
+.personnel-page .team-add-row {
+  align-items: center;
+}
+
+.personnel-page .team-add-row select {
+  min-width: 320px;
+  padding: 0.68rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: #fcfdfd;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.personnel-page .team-add-row select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
 /* Modal */
 .modal {
   position: fixed;
@@ -417,6 +437,15 @@ body {
   }
 
   .personnel-page .page-header input {
+    min-width: 0;
+  }
+
+  .personnel-page .team-add-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .personnel-page .team-add-row select {
     min-width: 0;
   }
 }
