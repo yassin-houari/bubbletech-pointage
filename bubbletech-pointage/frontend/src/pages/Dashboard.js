@@ -10,7 +10,7 @@ import { fr } from 'date-fns/locale';
 import '../styles/Dashboard.css';
 
 const Dashboard = () => {
-  const { user, isAdmin, isAdminOrManager } = useAuth();
+  const { user, isAdmin, isManager, isAdminOrManager } = useAuth();
   const [stats, setStats] = useState(null);
   const [pointages, setPointages] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -23,22 +23,49 @@ const Dashboard = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Charger les statistiques
-      const statsResponse = await pointageService.getStats({
-        date_debut: format(new Date(new Date().setDate(1)), 'yyyy-MM-dd')
-      });
-      setStats(statsResponse.data.stats);
+      const monthStart = format(new Date(new Date().setDate(1)), 'yyyy-MM-dd');
+      const weekStart = format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd');
 
-      // Charger les pointages récents
-      const pointagesResponse = await pointageService.getAll({
-        date_debut: format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd')
-      });
-      setPointages(pointagesResponse.data.pointages || []);
-
-      // Si admin ou manager, charger la liste des utilisateurs
-      if (isAdminOrManager) {
+      if (isManager) {
         const usersResponse = await userService.getAll({ actif: 'true' });
-        setAllUsers(usersResponse.data.users || []);
+        const teamUsers = usersResponse.data.users || [];
+        setAllUsers(teamUsers);
+
+        const teamUserIds = new Set(teamUsers.map((u) => Number(u.id)));
+
+        const [monthPointagesResponse, weekPointagesResponse] = await Promise.all([
+          pointageService.getAll({ date_debut: monthStart }),
+          pointageService.getAll({ date_debut: weekStart })
+        ]);
+
+        const monthPointages = (monthPointagesResponse.data.pointages || []).filter((p) => teamUserIds.has(Number(p.user_id)));
+        const weekPointages = (weekPointagesResponse.data.pointages || []).filter((p) => teamUserIds.has(Number(p.user_id)));
+
+        setPointages(weekPointages);
+
+        const totalPointages = monthPointages.length;
+        const totalDuree = monthPointages.reduce((sum, p) => sum + (p.duree_travail_minutes || 0), 0);
+        const pointagesAvecDuree = monthPointages.filter((p) => Number(p.duree_travail_minutes) > 0).length;
+
+        setStats({
+          total_pointages: totalPointages,
+          pointages_termines: monthPointages.filter((p) => p.statut === 'termine').length,
+          pointages_en_cours: monthPointages.filter((p) => p.statut === 'en_cours').length,
+          pointages_incomplets: monthPointages.filter((p) => p.statut === 'incomplet').length,
+          duree_totale_minutes: totalDuree,
+          duree_moyenne_minutes: pointagesAvecDuree > 0 ? Math.round(totalDuree / pointagesAvecDuree) : 0
+        });
+      } else {
+        const statsResponse = await pointageService.getStats({ date_debut: monthStart });
+        setStats(statsResponse.data.stats);
+
+        const pointagesResponse = await pointageService.getAll({ date_debut: weekStart });
+        setPointages(pointagesResponse.data.pointages || []);
+
+        if (isAdminOrManager) {
+          const usersResponse = await userService.getAll({ actif: 'true' });
+          setAllUsers(usersResponse.data.users || []);
+        }
       }
     } catch (error) {
       console.error('Erreur chargement dashboard:', error);
@@ -129,8 +156,8 @@ const Dashboard = () => {
 
   const getTodayAttendance = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const todayPointages = pointages.filter(p => p.date_pointage === today);
-    const present = todayPointages.filter(p => p.statut === 'en_cours' || p.statut === 'termine').length;
+    const todayPointages = pointages.filter((p) => p.date_pointage === today && (p.statut === 'en_cours' || p.statut === 'termine'));
+    const present = new Set(todayPointages.map((p) => p.user_id)).size;
     return { present, total: allUsers.length };
   };
 
@@ -153,7 +180,7 @@ const Dashboard = () => {
 
       {/* Statistiques */}
       <div className="stats-grid">
-        {isAdmin && (
+        {isAdminOrManager && (
           <>
             <div className="stat-card">
               <div className="stat-icon blue">
@@ -161,7 +188,7 @@ const Dashboard = () => {
               </div>
               <div className="stat-info">
                 <h3>{allUsers.length}</h3>
-                <p>Utilisateurs actifs</p>
+                <p>{isAdmin ? 'Utilisateurs actifs' : 'Membres de l\'équipe'}</p>
               </div>
             </div>
 
