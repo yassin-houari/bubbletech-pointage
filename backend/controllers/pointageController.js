@@ -136,17 +136,6 @@ const checkOut = async (req, res) => {
     const checkoutTime = checkoutAt;
     let dureeTravailMinutes = Math.floor((checkoutTime - checkinTime) / 60000);
 
-    // Soustraire les pauses
-    // Sum pauses (works with both new and old pause schemas)
-    const hasDebutAt = await hasColumn('pauses', 'debut_at');
-    const sumQuery = hasDebutAt
-      ? 'SELECT SUM(duree_minutes) as total_pauses FROM pauses WHERE pointage_id = ?'
-      : 'SELECT SUM(duree_minutes) as total_pauses FROM pauses WHERE pointage_id = ?';
-    const [pauses] = await connection.query(sumQuery, [pointage.id]);
-    if (pauses[0].total_pauses) {
-      dureeTravailMinutes -= pauses[0].total_pauses;
-    }
-
     // Mettre à jour le pointage
     const useCheckoutAt = await hasColumn('pointages', 'checkout_at');
     if (useCheckoutAt) {
@@ -188,166 +177,6 @@ const checkOut = async (req, res) => {
   }
 };
 
-// Début de pause
-const startBreak = async (req, res) => {
-  const connection = await pool.getConnection();
-  
-  try {
-    await connection.beginTransaction();
-
-    const userId = req.user.id;
-
-    // Récupérer la session en cours la plus récente
-    const [pointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
-      [userId]
-    );
-
-    if (pointages.length === 0) {
-      await connection.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Aucune session en cours trouvée' 
-      });
-    }
-
-    const pointage = pointages[0];
-
-    // Vérifier s'il n'y a pas déjà une pause en cours (support legacy)
-    const hasFinAt = await hasColumn('pauses', 'fin_at');
-    const openPauseQuery = hasFinAt
-      ? 'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL'
-      : 'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL';
-    const [pausesEnCours] = await connection.query(openPauseQuery, [pointage.id]);
-
-    if (pausesEnCours.length > 0) {
-      await connection.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Une pause est déjà en cours' 
-      });
-    }
-
-    // Créer la pause (insert into debut_at or heure_debut depending on schema)
-    const hasDebutAt = await hasColumn('pauses', 'debut_at');
-    let result;
-    let debutAt = null;
-    let heureDebut = null;
-    if (hasDebutAt) {
-      debutAt = new Date();
-      [result] = await connection.query('INSERT INTO pauses (pointage_id, debut_at) VALUES (?, ?)', [pointage.id, debutAt]);
-    } else {
-      heureDebut = new Date().toTimeString().split(' ')[0];
-      [result] = await connection.query('INSERT INTO pauses (pointage_id, heure_debut) VALUES (?, ?)', [pointage.id, heureDebut]);
-    }
-
-    await connection.commit();
-
-    res.json({
-      success: true,
-      message: 'Pause commencée',
-      pause: {
-        id: result.insertId,
-        pointage_id: pointage.id,
-        debut_at: debutAt,
-        heure_debut: heureDebut
-      }
-    });
-
-  } catch (error) {
-    await connection.rollback();
-    console.error('Erreur lors du début de pause:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erreur serveur' 
-    });
-  } finally {
-    connection.release();
-  }
-};
-
-// Fin de pause
-const endBreak = async (req, res) => {
-  const connection = await pool.getConnection();
-  
-  try {
-    await connection.beginTransaction();
-
-    const userId = req.user.id;
-
-    // Récupérer la session en cours la plus récente
-    const [pointages] = await connection.query(
-      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
-      [userId]
-    );
-
-    if (pointages.length === 0) {
-      await connection.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Aucune session en cours trouvée' 
-      });
-    }
-
-    const pointage = pointages[0];
-
-    // Récupérer la pause en cours (support legacy)
-    const hasFinAt = await hasColumn('pauses', 'fin_at');
-    const openPauseQuery = hasFinAt
-      ? 'SELECT * FROM pauses WHERE pointage_id = ? AND fin_at IS NULL ORDER BY id DESC LIMIT 1'
-      : 'SELECT * FROM pauses WHERE pointage_id = ? AND heure_fin IS NULL ORDER BY id DESC LIMIT 1';
-    const [pauses] = await connection.query(openPauseQuery, [pointage.id]);
-
-    if (pauses.length === 0) {
-      await connection.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Aucune pause en cours' 
-      });
-    }
-
-    const pause = pauses[0];
-    const finAt = new Date();
-
-    // Calculer la durée de la pause (utiliser le timestamp actuel pour gérer traversée de minuit)
-    let debutTime;
-    if (pause.debut_at) debutTime = new Date(pause.debut_at);
-    else if (pause.heure_debut) debutTime = new Date(`${pointage.date_pointage} ${pause.heure_debut}`);
-    else debutTime = finAt;
-    const finTime = finAt;
-    const dureeMinutes = Math.floor((finTime - debutTime) / 60000);
-
-    // Mettre à jour la pause
-    if (hasFinAt) {
-      await connection.query('UPDATE pauses SET fin_at = ?, duree_minutes = ? WHERE id = ?', [finAt, dureeMinutes, pause.id]);
-    } else {
-      const timeStr = finAt.toTimeString().split(' ')[0];
-      await connection.query('UPDATE pauses SET heure_fin = ?, duree_minutes = ? WHERE id = ?', [timeStr, dureeMinutes, pause.id]);
-    }
-
-    await connection.commit();
-
-    res.json({
-      success: true,
-      message: 'Pause terminée',
-      pause: {
-        id: pause.id,
-        fin_at: finAt,
-        duree_minutes: dureeMinutes
-      }
-    });
-
-  } catch (error) {
-    await connection.rollback();
-    console.error('Erreur lors de la fin de pause:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erreur serveur' 
-    });
-  } finally {
-    connection.release();
-  }
-};
 
 // Obtenir les pointages (avec filtres)
 const getPointages = async (req, res) => {
@@ -370,18 +199,6 @@ const getPointages = async (req, res) => {
          ORDER BY p.date_pointage DESC, ${orderCol} DESC`,
         [requesterId]
       );
-
-      const hasDebutAt = await hasColumn('pauses', 'debut_at');
-      const hasHeureDebut = await hasColumn('pauses', 'heure_debut');
-      const pauseOrderCol = hasDebutAt ? 'debut_at' : (hasHeureDebut ? 'heure_debut' : 'id');
-
-      for (let pointage of pointages) {
-        const [pauses] = await pool.query(
-          `SELECT * FROM pauses WHERE pointage_id = ? ORDER BY ${pauseOrderCol}`,
-          [pointage.id]
-        );
-        pointage.pauses = pauses;
-      }
 
       return res.json({
         success: true,
@@ -446,19 +263,6 @@ const getPointages = async (req, res) => {
     query += ` ORDER BY p.date_pointage DESC, ${orderCol} DESC`;
 
     const [pointages] = await pool.query(query, params);
-
-    // Récupérer les pauses pour chaque pointage (choisir colonne d'ordre selon schéma)
-    const hasDebutAt = await hasColumn('pauses', 'debut_at');
-    const hasHeureDebut = await hasColumn('pauses', 'heure_debut');
-    const pauseOrderCol = hasDebutAt ? 'debut_at' : (hasHeureDebut ? 'heure_debut' : 'id');
-
-    for (let pointage of pointages) {
-      const [pauses] = await pool.query(
-        `SELECT * FROM pauses WHERE pointage_id = ? ORDER BY ${pauseOrderCol}`,
-        [pointage.id]
-      );
-      pointage.pauses = pauses;
-    }
 
     res.json({
       success: true,
@@ -618,8 +422,6 @@ const getPointageStats = async (req, res) => {
 module.exports = {
   checkIn,
   checkOut,
-  startBreak,
-  endBreak,
   getPointages,
   getPointageStats
 };

@@ -3,9 +3,8 @@ require('dotenv').config();
 
 const initDatabase = async () => {
   let connection;
-  
+
   try {
-    // Connexion sans spécifier la base de données
     connection = await mysql.createConnection({
       host: process.env.DB_HOST || 'localhost',
       user: process.env.DB_USER || 'root',
@@ -15,19 +14,40 @@ const initDatabase = async () => {
 
     console.log('📦 Connexion à MySQL établie');
 
-    // Créer la base de données si elle n'existe pas
     const dbName = process.env.DB_NAME || 'bubbletech_pointage';
-    await connection.query(`CREATE DATABASE IF NOT EXISTS ${dbName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await connection.query(
+      `CREATE DATABASE IF NOT EXISTS ${dbName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    );
     console.log(`✅ Base de données '${dbName}' créée ou déjà existante`);
 
-    // Utiliser la base de données
     await connection.query(`USE ${dbName}`);
 
-    // Nettoyage des anciennes structures
-    await connection.query(`DROP TABLE IF EXISTS specialites_manager`);
-    console.log('✅ Ancienne table specialites_manager supprimée si existante');
+    await connection.query('DROP TABLE IF EXISTS specialites_manager');
+    await connection.query('DROP TABLE IF EXISTS equipes');
+    await connection.query('DROP TABLE IF EXISTS pauses');
+    console.log('✅ Anciennes tables obsolètes supprimées si existantes');
 
-    // Table User (table mère pour tous les utilisateurs)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS managers (
+        user_id INT PRIMARY KEY,
+        date_nomination DATE NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Table managers créée');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS departements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        manager_id INT,
+        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (manager_id) REFERENCES managers(user_id) ON DELETE SET NULL,
+        INDEX idx_manager_id (manager_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Table departements créée');
+
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -45,68 +65,12 @@ const initDatabase = async () => {
         INDEX idx_email (email),
         INDEX idx_code_secret (code_secret),
         INDEX idx_role (role),
-        INDEX idx_departement_id (departement_id)
+        INDEX idx_departement_id (departement_id),
+        FOREIGN KEY (departement_id) REFERENCES departements(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table users créée');
 
-    // Table Manager
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS managers (
-        user_id INT PRIMARY KEY,
-        date_nomination DATE NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table managers créée');
-
-    // Table Département (pour normalisation 3NF)
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS departements (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nom VARCHAR(100) NOT NULL UNIQUE,
-        description TEXT,
-        manager_id INT,
-        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (manager_id) REFERENCES managers(user_id) ON DELETE SET NULL,
-        INDEX idx_manager_id (manager_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table departements créée');
-
-    // Migration compat: ajouter users.departement_id si absent
-    try {
-      await connection.query('ALTER TABLE users ADD COLUMN departement_id INT NULL');
-      console.log('✅ Colonne users.departement_id ajoutée');
-    } catch (error) {
-      if (error.code !== 'ER_DUP_FIELDNAME') {
-        throw error;
-      }
-    }
-
-    // Migration compat: ajouter index users.departement_id si absent
-    try {
-      await connection.query('CREATE INDEX idx_departement_id ON users(departement_id)');
-      console.log('✅ Index users.departement_id ajouté');
-    } catch (error) {
-      if (error.code !== 'ER_DUP_KEYNAME') {
-        throw error;
-      }
-    }
-
-    // Migration compat: lier users.departement_id -> departements.id
-    try {
-      await connection.query(
-        'ALTER TABLE users ADD CONSTRAINT fk_users_departement FOREIGN KEY (departement_id) REFERENCES departements(id) ON DELETE SET NULL'
-      );
-      console.log('✅ FK users.departement_id créée');
-    } catch (error) {
-      if (error.code !== 'ER_DUP_KEY' && error.code !== 'ER_FK_DUP_NAME') {
-        throw error;
-      }
-    }
-
-    // Table Poste (pour normalisation 3NF)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS postes (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -120,7 +84,6 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table postes créée');
 
-    // Table Personnel
     await connection.query(`
       CREATE TABLE IF NOT EXISTS personnel (
         user_id INT PRIMARY KEY,
@@ -133,7 +96,6 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table personnel créée');
 
-    // Table Stagiaire
     await connection.query(`
       CREATE TABLE IF NOT EXISTS stagiaires (
         user_id INT PRIMARY KEY,
@@ -147,11 +109,6 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table stagiaires créée');
 
-    // Suppression de la table equipes (remplacée par users.departement_id)
-    await connection.query('DROP TABLE IF EXISTS equipes');
-    console.log('✅ Table equipes supprimée si existante');
-
-    // Table Pointage (supporte plusieurs sessions par jour)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS pointages (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -169,24 +126,8 @@ const initDatabase = async () => {
         INDEX idx_checkin_at (checkin_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    console.log('✅ Table pointages créée (avec checkin_at/checkout_at)');
+    console.log('✅ Table pointages créée');
 
-    // Table Pauses (gestion de plusieurs pauses par session)
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS pauses (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        pointage_id INT NOT NULL,
-        debut_at DATETIME NOT NULL,
-        fin_at DATETIME,
-        duree_minutes INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (pointage_id) REFERENCES pointages(id) ON DELETE CASCADE,
-        INDEX idx_pointage (pointage_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table pauses créée (avec debut_at/fin_at)');
-
-    // Table Notifications
     await connection.query(`
       CREATE TABLE IF NOT EXISTS notifications (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -204,7 +145,6 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table notifications créée');
 
-    // Table Logs (pour l'audit et la traçabilité)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -227,7 +167,6 @@ const initDatabase = async () => {
     console.log('   1. Vérifiez le fichier .env');
     console.log('   2. Créez un utilisateur administrateur');
     console.log('   3. Lancez le serveur avec "npm run dev"');
-
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation:', error.message);
     throw error;
@@ -238,7 +177,6 @@ const initDatabase = async () => {
   }
 };
 
-// Exécution
 initDatabase()
   .then(() => process.exit(0))
   .catch((error) => {

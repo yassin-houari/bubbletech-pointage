@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
-import { FiClock, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle } from 'react-icons/fi';
+import { FiClock, FiLogIn, FiLogOut, FiCheckCircle } from 'react-icons/fi';
 import '../styles/Pointage.css';
 
 const Pointage = () => {
@@ -247,21 +247,6 @@ const Pointage = () => {
                         <span>Durée: {s.duree_travail_minutes ? `${Math.floor(s.duree_travail_minutes/60)}h${s.duree_travail_minutes%60}m` : '-'}</span>
                         <span style={{marginLeft: '1rem'}}>Statut: {s.statut}</span>
                       </div>
-                      {s.pauses && s.pauses.length > 0 && (
-                        <div className="session-pauses">
-                          <em>Pauses:</em>
-                          <ul>
-                            {s.pauses.map((p) => (
-                              <li key={p.id}>
-                                {p.debut_at ? new Date(p.debut_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-'}
-                                {' → '}
-                                {p.fin_at ? new Date(p.fin_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'En cours'}
-                                {' ('}{p.duree_minutes ? `${p.duree_minutes}m` : '-'}{')'}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

@@ -118,12 +118,6 @@ export const pointageService = {
   checkOut: () => 
     api.post('/pointages/checkout'),
   
-  startBreak: () => 
-    api.post('/pointages/break/start'),
-  
-  endBreak: () => 
-    api.post('/pointages/break/end'),
-  
   getAll: (params) => 
     api.get('/pointages', { params }),
   
