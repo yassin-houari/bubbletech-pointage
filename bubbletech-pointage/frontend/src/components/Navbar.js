@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  FiHome, FiClock, FiUsers, FiLogOut, FiMenu 
+  FiHome, FiClock, FiUsers, FiLogOut, FiMenu, FiUser 
 } from 'react-icons/fi';
 import '../styles/Navbar.css';
 
@@ -43,6 +43,9 @@ const Navbar = () => {
             </Link>
             <Link to="/pointage" onClick={() => setMenuOpen(false)}>
               <FiClock /> Pointage
+            </Link>
+            <Link to="/profile" onClick={() => setMenuOpen(false)}>
+              <FiUser /> Profile
             </Link>
             {isAdminOrManager && (
               <Link to="/users" onClick={() => setMenuOpen(false)}>

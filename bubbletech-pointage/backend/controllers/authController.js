@@ -255,6 +255,71 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Changer le code secret (PIN)
+const changeSecretCode = async (req, res) => {
+  try {
+    const { oldCode, newCode } = req.body;
+    const userId = req.user.id;
+
+    if (!oldCode || !newCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ancien et nouveau code secret requis'
+      });
+    }
+
+    if (!/^\d{4}$/.test(oldCode) || !/^\d{4}$/.test(newCode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le code secret doit contenir exactement 4 chiffres'
+      });
+    }
+
+    if (oldCode === newCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le nouveau code secret doit être différent de l\'ancien'
+      });
+    }
+
+    const [users] = await pool.query('SELECT id, code_secret FROM users WHERE id = ? AND actif = true', [userId]);
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    if (users[0].code_secret !== oldCode) {
+      return res.status(401).json({
+        success: false,
+        message: 'Ancien code secret incorrect'
+      });
+    }
+
+    const [existingCode] = await pool.query('SELECT id FROM users WHERE code_secret = ? AND id != ?', [newCode, userId]);
+    if (existingCode.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ce code secret est déjà utilisé'
+      });
+    }
+
+    await pool.query('UPDATE users SET code_secret = ? WHERE id = ?', [newCode, userId]);
+
+    res.json({
+      success: true,
+      message: 'Code secret modifié avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors du changement du code secret:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du changement du code secret'
+    });
+  }
+};
+
 // Obtenir le profil de l'utilisateur connecté
 const getProfile = async (req, res) => {
   try {
@@ -305,6 +370,7 @@ module.exports = {
   loginWithCode,
   requestPasswordReset,
   changePassword,
+  changeSecretCode,
   getProfile,
   generateRandomPassword
 };
