@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
 import { FiClock, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle } from 'react-icons/fi';
@@ -139,17 +140,10 @@ const Pointage = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      const storedPointageUser = sessionStorage.getItem('pointage_user');
-      if (storedPointageUser) {
-        try {
-          const parsedUser = JSON.parse(storedPointageUser);
-          setPointageUser(parsedUser);
-          setIsVerified(true);
-        } catch {
-          sessionStorage.removeItem('pointage_user');
-          sessionStorage.removeItem('pointage_token');
-        }
-      }
+      sessionStorage.removeItem('pointage_user');
+      sessionStorage.removeItem('pointage_token');
+      setPointageUser(null);
+      setIsVerified(false);
     }
   }, [isAuthenticated]);
 
@@ -278,7 +272,10 @@ const Pointage = () => {
         )}
 
         <div className="pointage-footer">
-          <p>Pour accéder à votre tableau de bord complet, connectez-vous avec votre email</p>
+          <p>
+            Pour accéder à votre tableau de bord complet,{' '}
+            <Link to="/login">connectez-vous avec votre email</Link>
+          </p>
         </div>
       </div>
     </div>

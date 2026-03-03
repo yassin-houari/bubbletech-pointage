@@ -50,21 +50,9 @@ const isAdmin = checkRole('admin');
 // Middleware pour admin ou manager
 const isAdminOrManager = checkRole('admin', 'manager');
 
-// Middleware pour bloquer les tokens de pointage rapide hors interface pointage
-const requireFullAccess = (req, res, next) => {
-  if (req.user?.pointage_only) {
-    return res.status(403).json({
-      success: false,
-      message: 'Accès limité au pointage rapide uniquement.'
-    });
-  }
-  next();
-};
-
 module.exports = {
   verifyToken,
   checkRole,
   isAdmin,
-  isAdminOrManager,
-  requireFullAccess
+  isAdminOrManager
 };
