@@ -144,6 +144,7 @@ const Personnel = () => {
       prenom: '',
       email: '',
       role: 'personnel',
+      departement_id: '',
       actif: true,
       password: '',
       doit_changer_mdp: false,
@@ -173,6 +174,12 @@ const Personnel = () => {
       }
       if (payload.date_embauche === '') {
         delete payload.date_embauche;
+      }
+
+      if (isAdmin) {
+        payload.departement_id = payload.departement_id ? Number(payload.departement_id) : null;
+      } else {
+        delete payload.departement_id;
       }
 
       if (payload.role === 'personnel') {
@@ -426,6 +433,21 @@ const Personnel = () => {
                   <input value={formatRoleLabel(editingUser.role)} disabled />
                 )}
               </div>
+              {isAdmin && (
+                <div>
+                  <label>Département d'affectation</label>
+                  <select
+                    value={editingUser.departement_id || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, departement_id: e.target.value })}
+                    disabled={loadingLookups}
+                  >
+                    <option value="">Aucun département</option>
+                    {departements.map((d) => (
+                      <option key={d.id} value={String(d.id)}>{d.nom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {editingUser.role === 'personnel' && (
                 <>
                   <div>
