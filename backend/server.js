@@ -116,8 +116,6 @@ const startServer = async () => {
       console.log(`   - DELETE /api/users/:id`);
       console.log(`   - POST /api/pointages/checkin`);
       console.log(`   - POST /api/pointages/checkout`);
-      console.log(`   - POST /api/pointages/break/start`);
-      console.log(`   - POST /api/pointages/break/end`);
       console.log(`   - GET  /api/pointages`);
       console.log(`   - GET  /api/pointages/stats`);
       console.log(`   - GET  /api/departements`);
