@@ -321,4 +321,4 @@ Pour toute question : yassinhoua123@gmail.com
 
 ---
 
-**Développé avec ❤️ pour BubbleTech Apar Yassin Houari**
+**Développé avec ❤️ pour BubbleTech par Yassin Houari**
