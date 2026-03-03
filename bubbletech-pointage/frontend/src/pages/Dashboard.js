@@ -205,15 +205,17 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon orange">
-            <FiTrendingUp />
+        {!isAdminOrManager && (
+          <div className="stat-card">
+            <div className="stat-icon orange">
+              <FiTrendingUp />
+            </div>
+            <div className="stat-info">
+              <h3>{formatDuration(stats?.duree_moyenne_minutes)}</h3>
+              <p>Temps du mois</p>
+            </div>
           </div>
-          <div className="stat-info">
-            <h3>{formatDuration(stats?.duree_moyenne_minutes)}</h3>
-            <p>Durée moyenne</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Pointages récents */}
