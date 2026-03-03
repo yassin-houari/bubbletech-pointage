@@ -324,12 +324,26 @@ const Personnel = () => {
                 </tr>
               </thead>
               <tbody>
-                {teamMembers.length === 0 ? (
+                {teamMembers.filter(u => {
+                  if (!search) return true;
+                  const s = search.toLowerCase();
+                  return (u.nom || '').toLowerCase().includes(s)
+                    || (u.prenom || '').toLowerCase().includes(s)
+                    || (u.email || '').toLowerCase().includes(s);
+                }).length === 0 ? (
                   <tr>
                     <td colSpan={5}>Aucun membre dans votre équipe.</td>
                   </tr>
                 ) : (
-                  teamMembers.map((u) => (
+                  teamMembers
+                    .filter(u => {
+                      if (!search) return true;
+                      const s = search.toLowerCase();
+                      return (u.nom || '').toLowerCase().includes(s)
+                        || (u.prenom || '').toLowerCase().includes(s)
+                        || (u.email || '').toLowerCase().includes(s);
+                    })
+                    .map((u) => (
                     <tr key={u.id}>
                       <td>{u.prenom} {u.nom}</td>
                       <td>{u.email}</td>
