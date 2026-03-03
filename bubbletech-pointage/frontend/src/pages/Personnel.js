@@ -288,7 +288,7 @@ const Personnel = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div className="team-add-row" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <select
               value={selectedNewMemberId}
               onChange={(e) => setSelectedNewMemberId(e.target.value)}
