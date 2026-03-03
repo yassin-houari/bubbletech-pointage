@@ -236,6 +236,24 @@ L'application envoie automatiquement des emails via Brevo pour :
 3. **Alertes d'absence** (optionnel)
    - Notification si aucun pointage détecté
 
+4. **Alertes administrateur**
+   - Synthèse quotidienne des utilisateurs sans pointage
+   - Envoi d'un récapitulatif aux administrateurs actifs
+
+### Déclenchement des notifications quotidiennes
+
+Endpoint admin pour envoyer les rappels + alertes:
+
+```bash
+POST /api/notifications/daily-reminders
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+
+{
+  "date": "2026-03-03"  // optionnel, défaut = aujourd'hui
+}
+```
+
 ### Configuration Brevo
 
 1. Créer un compte sur [Brevo](https://www.brevo.com)

@@ -13,6 +13,7 @@ const userRoutes = require('./routes/users');
 const pointageRoutes = require('./routes/pointages');
 const departementRoutes = require('./routes/departements');
 const posteRoutes = require('./routes/postes');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +55,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/pointages', pointageRoutes);
 app.use('/api/departements', departementRoutes);
 app.use('/api/postes', posteRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Route de test
 app.get('/api/health', (req, res) => {
@@ -122,6 +124,7 @@ const startServer = async () => {
       console.log(`   - POST /api/departements`);
       console.log(`   - GET  /api/postes`);
       console.log(`   - POST /api/postes`);
+      console.log(`   - POST /api/notifications/daily-reminders`);
       console.log('\n✅ Serveur prêt à recevoir des requêtes\n');
     });
 
