@@ -3,14 +3,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: radial-gradient(circle at top left, #d6f7f3 0%, #f4f7f6 45%, #eef2ff 100%);
   padding: 2rem;
 }
 
 .login-card {
-  background: white;
+  background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid #d8e1df;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
   padding: 3rem;
   width: 100%;
   max-width: 450px;
@@ -35,12 +36,12 @@
 
 .login-header h1 {
   font-size: 2rem;
-  color: #1F2937;
+  color: #0f172a;
   margin-bottom: 0.5rem;
 }
 
 .login-header p {
-  color: #6B7280;
+  color: #475569;
   font-size: 1rem;
 }
 
@@ -49,15 +50,15 @@
 }
 
 .error-message {
-  background-color: #FEE2E2;
-  color: #991B1B;
+  background-color: #fee2e2;
+  color: #991b1b;
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border-left: 4px solid #EF4444;
+  border-left: 4px solid #dc2626;
 }
 
 .login-footer {

@@ -9,12 +9,12 @@
 
 .profile-header h1 {
   font-size: 2rem;
-  color: #1f2937;
+  color: #0f172a;
   margin-bottom: 0.25rem;
 }
 
 .profile-header p {
-  color: #6b7280;
+  color: #475569;
 }
 
 .profile-grid {
@@ -26,6 +26,7 @@
 .profile-grid .card h2 {
   margin-bottom: 1rem;
   font-size: 1.25rem;
+  color: #0f172a;
 }
 
 @media (max-width: 900px) {
