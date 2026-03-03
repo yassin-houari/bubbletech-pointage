@@ -140,7 +140,6 @@ La base de données est normalisée en 3ème forme normale (3NF) :
 - `personnel` - Données spécifiques aux employés
 - `stagiaires` - Données spécifiques aux stagiaires
 - `managers` - Managers et leurs spécialités
-- `equipes` - Relations manager-membres
 - `pointages` - Enregistrements de présence
 - `pauses` - Pauses multiples par jour
 - `notifications` - Notifications système
@@ -152,7 +151,8 @@ La base de données est normalisée en 3ème forme normale (3NF) :
 users (1) ──┬── (1) personnel ── (N) postes ── (N) departements
             ├── (1) stagiaires
             └── (1) managers ── (N) specialites_manager
-                             └── (N) equipes
+
+users (N) ── (1) departements (via users.departement_id)
 
 pointages (N) ── (1) users
           └── (N) pauses

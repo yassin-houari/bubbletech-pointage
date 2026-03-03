@@ -4,15 +4,19 @@ import { departementService, posteService, userService } from '../services/api';
 import { format } from 'date-fns';
 
 const Personnel = () => {
-  const { isAdmin, isAdminOrManager } = useAuth();
+  const { isAdmin, isManager, isAdminOrManager } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingLookups, setLoadingLookups] = useState(true);
+  const [loadingTeam, setLoadingTeam] = useState(false);
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [departements, setDepartements] = useState([]);
   const [postes, setPostes] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [selectedNewMemberId, setSelectedNewMemberId] = useState('');
   const [selectedDepartementId, setSelectedDepartementId] = useState('');
   const [selectedPosteId, setSelectedPosteId] = useState('');
   const [newDepartementName, setNewDepartementName] = useState('');
@@ -36,7 +40,10 @@ const Personnel = () => {
   useEffect(() => {
     loadUsers();
     loadLookups();
-  }, []);
+    if (isManager) {
+      loadManagerTeamData();
+    }
+  }, [isManager]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -64,6 +71,46 @@ const Personnel = () => {
       console.error('Erreur chargement departements/postes', err);
     }
     setLoadingLookups(false);
+  };
+
+  const loadManagerTeamData = async () => {
+    setLoadingTeam(true);
+    try {
+      const [teamRes, assignableRes] = await Promise.all([
+        userService.getManagerTeamMembers(),
+        userService.getManagerAssignableUsers()
+      ]);
+      setTeamMembers(teamRes.data.members || []);
+      setAssignableUsers(assignableRes.data.users || []);
+    } catch (err) {
+      console.error('Erreur chargement equipe manager', err);
+    }
+    setLoadingTeam(false);
+  };
+
+  const handleAddTeamMember = async () => {
+    if (!selectedNewMemberId) return;
+    try {
+      await userService.addManagerTeamMember(Number(selectedNewMemberId));
+      setSelectedNewMemberId('');
+      await loadManagerTeamData();
+      await loadUsers();
+    } catch (err) {
+      console.error('Erreur ajout membre equipe', err);
+      alert(err.response?.data?.message || 'Erreur ajout membre équipe');
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId) => {
+    if (!window.confirm('Supprimer ce membre de votre équipe ?')) return;
+    try {
+      await userService.removeManagerTeamMember(memberId);
+      await loadManagerTeamData();
+      await loadUsers();
+    } catch (err) {
+      console.error('Erreur suppression membre equipe', err);
+      alert(err.response?.data?.message || 'Erreur suppression membre équipe');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -203,6 +250,69 @@ const Personnel = () => {
         </div>
       </div>
 
+      {isManager && (
+        <div className="table-container" style={{ marginBottom: 16 }}>
+          <h3>Mon équipe</h3>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <select
+              value={selectedNewMemberId}
+              onChange={(e) => setSelectedNewMemberId(e.target.value)}
+              disabled={loadingTeam}
+            >
+              <option value="">Choisir un membre à ajouter</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  {u.prenom} {u.nom} - {formatRoleLabel(u.role)}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn btn-primary"
+              onClick={handleAddTeamMember}
+              disabled={!selectedNewMemberId || loadingTeam}
+            >
+              Ajouter à l'équipe
+            </button>
+          </div>
+
+          {loadingTeam ? (
+            <div>Chargement équipe...</div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Email</th>
+                  <th>Rôle</th>
+                  <th>Poste</th>
+                  <th>Actions équipe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>Aucun membre dans votre équipe.</td>
+                  </tr>
+                ) : (
+                  teamMembers.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.prenom} {u.nom}</td>
+                      <td>{u.email}</td>
+                      <td>{formatRoleLabel(u.role)}</td>
+                      <td>{u.poste_nom || '-'}</td>
+                      <td style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn" onClick={() => openEdit(u)}>Éditer</button>
+                        <button className="btn btn-danger" onClick={() => handleRemoveTeamMember(u.id)}>Supprimer</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div>Chargement...</div>
       ) : (
@@ -290,12 +400,16 @@ const Personnel = () => {
               </div>
               <div>
                 <label>Rôle</label>
-                <select value={editingUser.role} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}>
-                  <option value="personnel">Employe</option>
-                  <option value="stagiaire">Stagiaire</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                </select>
+                {isAdmin ? (
+                  <select value={editingUser.role} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}>
+                    <option value="personnel">Employe</option>
+                    <option value="stagiaire">Stagiaire</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                ) : (
+                  <input value={formatRoleLabel(editingUser.role)} disabled />
+                )}
               </div>
               {editingUser.role === 'personnel' && (
                 <>

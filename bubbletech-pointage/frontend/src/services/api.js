@@ -60,6 +60,18 @@ export const authService = {
 export const userService = {
   getAll: (params) => 
     api.get('/users', { params }),
+
+  getManagerTeamMembers: () =>
+    api.get('/users/manager/team-members'),
+
+  getManagerAssignableUsers: () =>
+    api.get('/users/manager/assignable-users'),
+
+  addManagerTeamMember: (membre_id) =>
+    api.post('/users/manager/team-members', { membre_id }),
+
+  removeManagerTeamMember: (memberId) =>
+    api.delete(`/users/manager/team-members/${memberId}`),
   
   getById: (id) => 
     api.get(`/users/${id}`),

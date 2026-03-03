@@ -50,6 +50,26 @@ const getOrCreatePoste = async (connection, posteNom, departementNom = 'General'
   return result.insertId;
 };
 
+const getManagerDepartementIds = async (connection, managerId) => {
+  const [rows] = await connection.query(
+    'SELECT id FROM departements WHERE manager_id = ?',
+    [managerId]
+  );
+  return rows.map((row) => Number(row.id));
+};
+
+const isUserManagedByManager = async (connection, managerId, userId) => {
+  const [rows] = await connection.query(
+    `SELECT 1
+     FROM users u
+     WHERE u.id = ?
+       AND u.departement_id IN (SELECT id FROM departements WHERE manager_id = ?)
+     LIMIT 1`,
+    [userId, managerId]
+  );
+  return rows.length > 0;
+};
+
 // Créer un utilisateur (personnel ou stagiaire)
 const createUser = async (req, res) => {
   const connection = await pool.getConnection();
@@ -146,11 +166,35 @@ const createUser = async (req, res) => {
     // doit_changer_mdp : si fourni, respecter ; sinon forcer si mot de passe généré
     const forceChange = typeof doit_changer_mdp !== 'undefined' ? !!doit_changer_mdp : (temporaryPassword !== null);
 
+    let resolvedDepartementId = null;
+    if (role === 'personnel') {
+      let resolvedPosteId = poste_id;
+      if (!resolvedPosteId && poste_nom) {
+        resolvedPosteId = await getOrCreatePoste(connection, poste_nom);
+      }
+
+      if (!resolvedPosteId || !date_embauche) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Poste et date d\'embauche requis pour un personnel'
+        });
+      }
+
+      const [posteRows] = await connection.query(
+        'SELECT departement_id FROM postes WHERE id = ?',
+        [resolvedPosteId]
+      );
+      if (posteRows.length > 0) {
+        resolvedDepartementId = posteRows[0].departement_id;
+      }
+    }
+
     // Créer l'utilisateur
     const [userResult] = await connection.query(
-      `INSERT INTO users (nom, prenom, email, password, role, code_secret, doit_changer_mdp, actif) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nom, prenom, email, hashedPassword, role, codeSecret, forceChange, true]
+      `INSERT INTO users (nom, prenom, email, password, role, departement_id, code_secret, doit_changer_mdp, actif)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nom, prenom, email, hashedPassword, role, resolvedDepartementId, codeSecret, forceChange, true]
     );
 
     const userId = userResult.insertId;
@@ -238,15 +282,15 @@ const getAllUsers = async (req, res) => {
     
     // Base query: join role-specific tables to provide useful metadata
     let query = `
-            SELECT u.*, 
-              p.poste_id, po.nom as poste_nom, d.id as departement_id, d.nom as departement_nom,
+            SELECT u.*,
+              p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
              p.date_embauche, p.salaire,
              s.date_debut, s.date_fin,
              m.date_nomination
       FROM users u
       LEFT JOIN personnel p ON u.id = p.user_id
       LEFT JOIN postes po ON p.poste_id = po.id
-      LEFT JOIN departements d ON po.departement_id = d.id
+      LEFT JOIN departements d ON u.departement_id = d.id
       LEFT JOIN stagiaires s ON u.id = s.user_id
       LEFT JOIN managers m ON u.id = m.user_id
       WHERE 1=1
@@ -273,7 +317,7 @@ const getAllUsers = async (req, res) => {
 
     // If the requester is a manager, restrict the listing to their team + themselves
     if (req.user && req.user.role === 'manager') {
-      query += ' AND (u.id = ? OR u.id IN (SELECT membre_id FROM equipes WHERE manager_id = ?))';
+      query += ' AND (u.id = ? OR u.departement_id IN (SELECT id FROM departements WHERE manager_id = ?))';
       params.push(req.user.id, req.user.id);
     }
 
@@ -304,16 +348,26 @@ const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (req.user?.role === 'manager' && Number(id) !== Number(req.user.id)) {
+      const managed = await isUserManagedByManager(pool, req.user.id, id);
+      if (!managed) {
+        return res.status(403).json({
+          success: false,
+          message: 'Accès refusé à cet utilisateur'
+        });
+      }
+    }
+
     const [users] = await pool.query(
             `SELECT u.*, 
-              p.poste_id, po.nom as poste_nom, d.id as departement_id, d.nom as departement_nom,
+        p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
               p.date_embauche, p.salaire,
               s.date_debut, s.date_fin, s.encadrant_id,
               m.date_nomination
        FROM users u
        LEFT JOIN personnel p ON u.id = p.user_id
        LEFT JOIN postes po ON p.poste_id = po.id
-       LEFT JOIN departements d ON po.departement_id = d.id
+      LEFT JOIN departements d ON u.departement_id = d.id
        LEFT JOIN stagiaires s ON u.id = s.user_id
        LEFT JOIN managers m ON u.id = m.user_id
        WHERE u.id = ?`,
@@ -351,6 +405,18 @@ const updateUser = async (req, res) => {
     await connection.beginTransaction();
 
     const { id } = req.params;
+
+    if (req.user?.role === 'manager' && Number(id) !== Number(req.user.id)) {
+      const managed = await isUserManagedByManager(connection, req.user.id, id);
+      if (!managed) {
+        await connection.rollback();
+        return res.status(403).json({
+          success: false,
+          message: 'Accès refusé à cet utilisateur'
+        });
+      }
+    }
+
     const {
       nom,
       prenom,
@@ -382,6 +448,18 @@ const updateUser = async (req, res) => {
     }
 
     const user = users[0];
+
+    if (
+      req.user?.role === 'manager' &&
+      typeof req.body.role !== 'undefined' &&
+      req.body.role !== user.role
+    ) {
+      await connection.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Un manager ne peut pas modifier le rôle'
+      });
+    }
 
     // Mettre à jour les données de base
     const updateFields = [];
@@ -461,7 +539,7 @@ const updateUser = async (req, res) => {
       // Remove previous role-specific records if necessary
       if (user.role === 'manager' && newRole !== 'manager') {
         await connection.query('DELETE FROM managers WHERE user_id = ?', [id]);
-        await connection.query('DELETE FROM equipes WHERE manager_id = ?', [id]);
+        await connection.query('UPDATE departements SET manager_id = NULL WHERE manager_id = ?', [id]);
       }
       if (user.role === 'personnel' && newRole !== 'personnel') {
         await connection.query('DELETE FROM personnel WHERE user_id = ?', [id]);
@@ -527,6 +605,17 @@ const updateUser = async (req, res) => {
           `UPDATE personnel SET ${personnelFields.join(', ')} WHERE user_id = ?`,
           personnelValues
         );
+
+        const [deptRows] = await connection.query(
+          `SELECT po.departement_id
+           FROM personnel p
+           INNER JOIN postes po ON po.id = p.poste_id
+           WHERE p.user_id = ?`,
+          [id]
+        );
+        if (deptRows.length > 0) {
+          await connection.query('UPDATE users SET departement_id = ? WHERE id = ?', [deptRows[0].departement_id, id]);
+        }
       }
     }
 
@@ -607,10 +696,192 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const getManagerTeamMembers = async (req, res) => {
+  try {
+    const managerId = req.user.id;
+    const [members] = await pool.query(
+      `SELECT u.id, u.nom, u.prenom, u.email, u.role, u.actif,
+              u.departement_id, d.nom AS departement_nom,
+              p.poste_id, po.nom AS poste_nom, p.date_embauche
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       LEFT JOIN postes po ON po.id = p.poste_id
+       LEFT JOIN departements d ON d.id = u.departement_id
+       WHERE u.id != ?
+         AND u.role IN ('personnel', 'stagiaire')
+         AND u.departement_id IN (SELECT id FROM departements WHERE manager_id = ?)
+       ORDER BY u.nom, u.prenom`,
+      [managerId, managerId]
+    );
+
+    res.json({
+      success: true,
+      count: members.length,
+      members
+    });
+  } catch (error) {
+    console.error('Erreur récupération équipe manager:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+};
+
+const getAssignableUsersForManager = async (req, res) => {
+  try {
+    const managerId = req.user.id;
+    const departementIds = await getManagerDepartementIds(pool, managerId);
+
+    if (departementIds.length === 0) {
+      return res.json({ success: true, count: 0, users: [] });
+    }
+
+    const placeholders = departementIds.map(() => '?').join(', ');
+    const [users] = await pool.query(
+      `SELECT u.id, u.nom, u.prenom, u.email, u.role,
+              u.departement_id, d.nom AS departement_nom,
+              p.poste_id, po.nom AS poste_nom
+       FROM users u
+       LEFT JOIN personnel p ON p.user_id = u.id
+       LEFT JOIN postes po ON po.id = p.poste_id
+       LEFT JOIN departements d ON d.id = u.departement_id
+       WHERE u.actif = 1
+         AND u.id != ?
+         AND u.role IN ('personnel', 'stagiaire')
+         AND (u.departement_id IS NULL OR u.departement_id NOT IN (${placeholders}))
+       ORDER BY u.nom, u.prenom`,
+      [managerId, ...departementIds]
+    );
+
+    res.json({
+      success: true,
+      count: users.length,
+      users
+    });
+  } catch (error) {
+    console.error('Erreur récupération utilisateurs assignables:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+};
+
+const addTeamMember = async (req, res) => {
+  try {
+    const managerId = req.user.id;
+    const { membre_id } = req.body;
+
+    if (!membre_id) {
+      return res.status(400).json({ success: false, message: 'membre_id requis' });
+    }
+
+    const [managerDepartements] = await pool.query(
+      'SELECT id FROM departements WHERE manager_id = ?',
+      [managerId]
+    );
+
+    if (managerDepartements.length === 0) {
+      return res.status(400).json({ success: false, message: 'Aucun département assigné au manager' });
+    }
+
+    if (managerDepartements.length > 1) {
+      return res.status(400).json({ success: false, message: 'Manager lié à plusieurs départements: opération ambiguë' });
+    }
+
+    const managerDepartementId = managerDepartements[0].id;
+
+    const [candidate] = await pool.query(
+      `SELECT id, role, actif, departement_id
+       FROM users
+       WHERE id = ?`,
+      [membre_id]
+    );
+
+    if (candidate.length === 0) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    }
+
+    if (!candidate[0].actif) {
+      return res.status(400).json({ success: false, message: 'Utilisateur inactif' });
+    }
+
+    if (!['personnel', 'stagiaire'].includes(candidate[0].role)) {
+      return res.status(400).json({ success: false, message: 'Rôle non éligible à une équipe manager' });
+    }
+
+    if (Number(candidate[0].departement_id) === Number(managerDepartementId)) {
+      return res.status(409).json({ success: false, message: 'Ce membre est déjà dans votre équipe' });
+    }
+
+    await pool.query('UPDATE users SET departement_id = ? WHERE id = ?', [managerDepartementId, membre_id]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Membre ajouté à votre équipe'
+    });
+  } catch (error) {
+    console.error('Erreur ajout membre équipe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+};
+
+const removeTeamMember = async (req, res) => {
+  try {
+    const managerId = req.user.id;
+    const memberId = req.params.memberId;
+
+    const departementIds = await getManagerDepartementIds(pool, managerId);
+    if (departementIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aucun département assigné au manager'
+      });
+    }
+
+    const placeholders = departementIds.map(() => '?').join(', ');
+
+    const [result] = await pool.query(
+      `UPDATE users
+       SET departement_id = NULL
+       WHERE id = ?
+         AND role IN ('personnel', 'stagiaire')
+         AND departement_id IN (${placeholders})`,
+      [memberId, ...departementIds]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Membre non trouvé dans votre équipe'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Membre supprimé de votre équipe'
+    });
+  } catch (error) {
+    console.error('Erreur suppression membre équipe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+};
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
-  deleteUser
+  deleteUser,
+  getManagerTeamMembers,
+  getAssignableUsersForManager,
+  addTeamMember,
+  removeTeamMember
 };
