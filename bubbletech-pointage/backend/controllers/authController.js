@@ -68,7 +68,7 @@ const login = async (req, res) => {
     }
 
     // Générer le token
-    const token = generateToken(user, { pointageOnly: true });
+    const token = generateToken(user);
 
     // Retourner les informations utilisateur (sans le mot de passe)
     const { password: _, ...userWithoutPassword } = user;
@@ -165,7 +165,7 @@ const loginWithCodeDirect = async (req, res) => {
     }
 
     const user = users[0];
-    const token = generateToken(user);
+    const token = generateToken(user, { pointageOnly: true });
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
