@@ -55,7 +55,30 @@ const getManagerDepartementIds = async (connection, managerId) => {
     'SELECT id FROM departements WHERE manager_id = ?',
     [managerId]
   );
-  return rows.map((row) => Number(row.id));
+  let ids = rows.map((row) => Number(row.id));
+
+  if (ids.length === 0) {
+    const [managerRows] = await connection.query(
+      'SELECT departement_id FROM users WHERE id = ? LIMIT 1',
+      [managerId]
+    );
+
+    const fallbackDepartementId = managerRows?.[0]?.departement_id;
+    if (fallbackDepartementId) {
+      await connection.query(
+        'UPDATE departements SET manager_id = ? WHERE id = ? AND (manager_id IS NULL OR manager_id = ?)',
+        [managerId, fallbackDepartementId, managerId]
+      );
+
+      const [retryRows] = await connection.query(
+        'SELECT id FROM departements WHERE manager_id = ?',
+        [managerId]
+      );
+      ids = retryRows.map((row) => Number(row.id));
+    }
+  }
+
+  return ids;
 };
 
 const isUserManagedByManager = async (connection, managerId, userId) => {
@@ -699,6 +722,31 @@ const deleteUser = async (req, res) => {
 const getManagerTeamMembers = async (req, res) => {
   try {
     const managerId = req.user.id;
+    const managedDepartementIds = await getManagerDepartementIds(pool, managerId);
+    let managedDepartements = [];
+
+    if (managedDepartementIds.length > 0) {
+      const placeholders = managedDepartementIds.map(() => '?').join(', ');
+      const [departements] = await pool.query(
+        `SELECT id, nom
+         FROM departements
+         WHERE id IN (${placeholders})
+         ORDER BY nom`,
+        managedDepartementIds
+      );
+      managedDepartements = departements;
+    }
+
+    if (managedDepartementIds.length === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        managed_departements: [],
+        members: []
+      });
+    }
+
+    const placeholders = managedDepartementIds.map(() => '?').join(', ');
     const [members] = await pool.query(
       `SELECT u.id, u.nom, u.prenom, u.email, u.role, u.actif,
               u.departement_id, d.nom AS departement_nom,
@@ -709,14 +757,15 @@ const getManagerTeamMembers = async (req, res) => {
        LEFT JOIN departements d ON d.id = u.departement_id
        WHERE u.id != ?
          AND u.role IN ('personnel', 'stagiaire')
-         AND u.departement_id IN (SELECT id FROM departements WHERE manager_id = ?)
+         AND u.departement_id IN (${placeholders})
        ORDER BY u.nom, u.prenom`,
-      [managerId, managerId]
+      [managerId, ...managedDepartementIds]
     );
 
     res.json({
       success: true,
       count: members.length,
+      managed_departements: managedDepartements,
       members
     });
   } catch (error) {

@@ -15,6 +15,7 @@ const Personnel = () => {
   const [departements, setDepartements] = useState([]);
   const [postes, setPostes] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [managedDepartements, setManagedDepartements] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
   const [selectedNewMemberId, setSelectedNewMemberId] = useState('');
   const [selectedDepartementId, setSelectedDepartementId] = useState('');
@@ -81,6 +82,7 @@ const Personnel = () => {
         userService.getManagerAssignableUsers()
       ]);
       setTeamMembers(teamRes.data.members || []);
+      setManagedDepartements(teamRes.data.managed_departements || []);
       setAssignableUsers(assignableRes.data.users || []);
     } catch (err) {
       console.error('Erreur chargement equipe manager', err);
@@ -253,11 +255,24 @@ const Personnel = () => {
       {isManager && (
         <div className="table-container" style={{ marginBottom: 16 }}>
           <h3>Mon équipe</h3>
+          <div style={{ marginBottom: 12 }}>
+            <strong>Département géré :</strong>{' '}
+            {managedDepartements.length > 0
+              ? managedDepartements.map((d) => d.nom).join(', ')
+              : 'Aucun département assigné'}
+          </div>
+
+          {managedDepartements.length === 0 && (
+            <div style={{ marginBottom: 12 }}>
+              Impossible d'ajouter des membres tant qu'aucun département n'est assigné à ce manager.
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <select
               value={selectedNewMemberId}
               onChange={(e) => setSelectedNewMemberId(e.target.value)}
-              disabled={loadingTeam}
+              disabled={loadingTeam || managedDepartements.length === 0}
             >
               <option value="">Choisir un membre à ajouter</option>
               {assignableUsers.map((u) => (
@@ -269,7 +284,7 @@ const Personnel = () => {
             <button
               className="btn btn-primary"
               onClick={handleAddTeamMember}
-              disabled={!selectedNewMemberId || loadingTeam}
+              disabled={!selectedNewMemberId || loadingTeam || managedDepartements.length === 0}
             >
               Ajouter à l'équipe
             </button>
