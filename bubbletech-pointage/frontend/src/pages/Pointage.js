@@ -5,13 +5,16 @@ import { FiClock, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle } from 'react-icons
 import '../styles/Pointage.css';
 
 const Pointage = () => {
-  const { loginWithCode, user } = useAuth();
+  const { loginWithCode, pointageDirectLogin, user, isAuthenticated } = useAuth();
   const [code, setCode] = useState('');
   const [isVerified, setIsVerified] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [pointageUser, setPointageUser] = useState(null);
+
+  const activeUser = isAuthenticated ? user : pointageUser;
 
   const handleCodeChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -26,20 +29,30 @@ const Pointage = () => {
     }
 
     setLoading(true);
-    const result = await loginWithCode(code);
+    const result = isAuthenticated
+      ? await loginWithCode(code)
+      : await pointageDirectLogin(code);
     
     if (result.success) {
+      const activeUser = result.user || user;
+
+      if (!isAuthenticated && result.token && activeUser) {
+        sessionStorage.setItem('pointage_token', result.token);
+        sessionStorage.setItem('pointage_user', JSON.stringify(activeUser));
+        setPointageUser(activeUser);
+      }
+
       setIsVerified(true);
-      setMessage({ type: 'success', text: `Bonjour ${user.prenom} ${user.nom}` });
+      setMessage({ type: 'success', text: `Bonjour ${activeUser?.prenom} ${activeUser?.nom}` });
+      if (activeUser?.id) {
+        loadSessions(activeUser.id);
+      }
     } else {
       setMessage({ type: 'error', text: result.message });
       setCode('');
     }
     
     setLoading(false);
-    if (result.success) {
-      loadSessions(user.id);
-    }
   };
 
   const loadSessions = async (userId) => {
@@ -103,6 +116,11 @@ const Pointage = () => {
   const resetForm = () => {
     setCode('');
     setIsVerified(false);
+    if (!isAuthenticated) {
+      sessionStorage.removeItem('pointage_token');
+      sessionStorage.removeItem('pointage_user');
+      setPointageUser(null);
+    }
     setMessage({ type: '', text: '' });
   };
 
@@ -115,9 +133,25 @@ const Pointage = () => {
   };
 
   useEffect(() => {
-    if (isVerified) loadSessions(user.id);
+    if (isVerified && activeUser?.id) loadSessions(activeUser.id);
     else setSessions([]);
-  }, [isVerified, user]);
+  }, [isVerified, activeUser]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const storedPointageUser = sessionStorage.getItem('pointage_user');
+      if (storedPointageUser) {
+        try {
+          const parsedUser = JSON.parse(storedPointageUser);
+          setPointageUser(parsedUser);
+          setIsVerified(true);
+        } catch {
+          sessionStorage.removeItem('pointage_user');
+          sessionStorage.removeItem('pointage_token');
+        }
+      }
+    }
+  }, [isAuthenticated]);
 
   return (
     <div className="pointage-container">
@@ -167,8 +201,8 @@ const Pointage = () => {
         ) : (
           <div className="actions-section">
             <div className="user-info">
-              <h2>{user.prenom} {user.nom}</h2>
-              <p>{user.email}</p>
+              <h2>{activeUser?.prenom} {activeUser?.nom}</h2>
+              <p>{activeUser?.email}</p>
             </div>
 
             <div className="actions-grid">
@@ -238,7 +272,7 @@ const Pointage = () => {
                   ))}
                 </div>
               )}
-              <button onClick={() => loadSessions(user.id)} className="btn btn-sm">Rafraîchir</button>
+              <button onClick={() => activeUser?.id && loadSessions(activeUser.id)} className="btn btn-sm">Rafraîchir</button>
             </div>
           </div>
         )}

@@ -55,6 +55,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const pointageDirectLogin = async (code_secret) => {
+    try {
+      const response = await authService.pointageDirectLogin(code_secret);
+      const { token, user } = response.data;
+
+      return { success: true, token, user };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Code incorrect'
+      };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -73,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     token,
     login,
     loginWithCode,
+    pointageDirectLogin,
     logout,
     updateUser,
     isAuthenticated: !!token,

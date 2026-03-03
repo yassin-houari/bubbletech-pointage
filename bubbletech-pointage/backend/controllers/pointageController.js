@@ -356,6 +356,40 @@ const getPointages = async (req, res) => {
     const requesterId = req.user.id;
     const requesterRole = req.user.role;
 
+    if (req.user.pointage_only) {
+      const hasCheckinAt = await hasColumn('pointages', 'checkin_at');
+      const hasHeureCheckin = await hasColumn('pointages', 'heure_checkin');
+      const orderCol = hasCheckinAt ? 'p.checkin_at' : (hasHeureCheckin ? 'p.heure_checkin' : 'p.id');
+
+      const [pointages] = await pool.query(
+        `SELECT p.*, u.nom, u.prenom, u.email, u.role
+         FROM pointages p
+         JOIN users u ON p.user_id = u.id
+         WHERE p.user_id = ?
+           AND p.date_pointage = CURDATE()
+         ORDER BY p.date_pointage DESC, ${orderCol} DESC`,
+        [requesterId]
+      );
+
+      const hasDebutAt = await hasColumn('pauses', 'debut_at');
+      const hasHeureDebut = await hasColumn('pauses', 'heure_debut');
+      const pauseOrderCol = hasDebutAt ? 'debut_at' : (hasHeureDebut ? 'heure_debut' : 'id');
+
+      for (let pointage of pointages) {
+        const [pauses] = await pool.query(
+          `SELECT * FROM pauses WHERE pointage_id = ? ORDER BY ${pauseOrderCol}`,
+          [pointage.id]
+        );
+        pointage.pauses = pauses;
+      }
+
+      return res.json({
+        success: true,
+        count: pointages.length,
+        pointages
+      });
+    }
+
     let query = `
       SELECT p.*, u.nom, u.prenom, u.email, u.role
       FROM pointages p
@@ -444,6 +478,13 @@ const getPointages = async (req, res) => {
 // Statistiques de pointage
 const getPointageStats = async (req, res) => {
   try {
+    if (req.user.pointage_only) {
+      return res.status(403).json({
+        success: false,
+        message: 'Statistiques non disponibles en mode pointage rapide.'
+      });
+    }
+
     const { user_id, date_debut, date_fin } = req.query;
     const requesterId = req.user.id;
     const requesterRole = req.user.role;
