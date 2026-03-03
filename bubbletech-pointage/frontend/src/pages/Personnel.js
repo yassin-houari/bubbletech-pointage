@@ -179,13 +179,23 @@ const Personnel = () => {
       }
 
       if (isAdmin) {
-        payload.departement_id = payload.departement_id ? Number(payload.departement_id) : null;
+        let assignedDepartementId = payload.departement_id;
+        if (assignedDepartementId === 'new') {
+          if (!newDepartementName) {
+            alert('Veuillez saisir un departement.');
+            return;
+          }
+          const depRes = await departementService.create({ nom: newDepartementName });
+          assignedDepartementId = String(depRes.data.departement.id);
+          await loadLookups();
+        }
+        payload.departement_id = assignedDepartementId ? Number(assignedDepartementId) : null;
       } else {
         delete payload.departement_id;
       }
 
       if (payload.role === 'personnel') {
-        let departementId = selectedDepartementId;
+        let departementId = selectedDepartementId || (payload.departement_id ? String(payload.departement_id) : '');
         if (departementId === 'new') {
           if (!newDepartementName) {
             alert('Veuillez saisir un departement.');
@@ -444,45 +454,34 @@ const Personnel = () => {
                   <label>Département d'affectation</label>
                   <select
                     value={editingUser.departement_id || ''}
-                    onChange={(e) => setEditingUser({ ...editingUser, departement_id: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEditingUser({ ...editingUser, departement_id: value });
+                      setSelectedDepartementId(value === 'new' ? '' : value);
+                      setSelectedPosteId('');
+                    }}
                     disabled={loadingLookups}
                   >
                     <option value="">Aucun département</option>
                     {departements.map((d) => (
                       <option key={d.id} value={String(d.id)}>{d.nom}</option>
                     ))}
+                    <option value="new">+ Nouveau département</option>
                   </select>
+                </div>
+              )}
+              {isAdmin && editingUser.departement_id === 'new' && (
+                <div>
+                  <label>Nouveau département</label>
+                  <input
+                    value={newDepartementName}
+                    onChange={(e) => setNewDepartementName(e.target.value)}
+                    placeholder="Ex: IT"
+                  />
                 </div>
               )}
               {editingUser.role === 'personnel' && (
                 <>
-                  <div>
-                    <label>Departement</label>
-                    <select
-                      value={selectedDepartementId}
-                      onChange={(e) => {
-                        setSelectedDepartementId(e.target.value);
-                        setSelectedPosteId('');
-                      }}
-                      disabled={loadingLookups}
-                    >
-                      <option value="">Choisir un departement</option>
-                      {departements.map((d) => (
-                        <option key={d.id} value={String(d.id)}>{d.nom}</option>
-                      ))}
-                      <option value="new">+ Nouveau departement</option>
-                    </select>
-                  </div>
-                  {selectedDepartementId === 'new' && (
-                    <div>
-                      <label>Nouveau departement</label>
-                      <input
-                        value={newDepartementName}
-                        onChange={(e) => setNewDepartementName(e.target.value)}
-                        placeholder="Ex: IT"
-                      />
-                    </div>
-                  )}
                   <div>
                     <label>Poste</label>
                     <select
@@ -492,7 +491,10 @@ const Personnel = () => {
                     >
                       <option value="">Choisir un poste</option>
                       {postes
-                        .filter((p) => !selectedDepartementId || selectedDepartementId === 'new' || String(p.departement_id) === String(selectedDepartementId))
+                        .filter((p) => {
+                          const effectiveDepartementId = selectedDepartementId || (editingUser.departement_id && editingUser.departement_id !== 'new' ? String(editingUser.departement_id) : '');
+                          return !effectiveDepartementId || effectiveDepartementId === 'new' || String(p.departement_id) === String(effectiveDepartementId);
+                        })
                         .map((p) => (
                           <option key={p.id} value={String(p.id)}>{p.nom}</option>
                         ))}
