@@ -445,6 +445,7 @@ const updateUser = async (req, res) => {
       prenom,
       email,
       actif,
+      departement_id,
       password,
       doit_changer_mdp,
       code_secret,
@@ -548,6 +549,42 @@ const updateUser = async (req, res) => {
       updateValues.push(actif);
     }
 
+    if (typeof departement_id !== 'undefined') {
+      if (req.user?.role !== 'admin') {
+        await connection.rollback();
+        return res.status(403).json({
+          success: false,
+          message: 'Seul un admin peut modifier le département'
+        });
+      }
+
+      if (departement_id === null || departement_id === '') {
+        updateFields.push('departement_id = ?');
+        updateValues.push(null);
+      } else {
+        const parsedDepartementId = Number(departement_id);
+        if (!Number.isInteger(parsedDepartementId) || parsedDepartementId <= 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'departement_id invalide'
+          });
+        }
+
+        const [departements] = await connection.query('SELECT id FROM departements WHERE id = ? LIMIT 1', [parsedDepartementId]);
+        if (departements.length === 0) {
+          await connection.rollback();
+          return res.status(404).json({
+            success: false,
+            message: 'Département non trouvé'
+          });
+        }
+
+        updateFields.push('departement_id = ?');
+        updateValues.push(parsedDepartementId);
+      }
+    }
+
     if (updateFields.length > 0) {
       updateValues.push(id);
       await connection.query(
@@ -636,7 +673,7 @@ const updateUser = async (req, res) => {
            WHERE p.user_id = ?`,
           [id]
         );
-        if (deptRows.length > 0) {
+        if (deptRows.length > 0 && typeof departement_id === 'undefined') {
           await connection.query('UPDATE users SET departement_id = ? WHERE id = ?', [deptRows[0].departement_id, id]);
         }
       }
