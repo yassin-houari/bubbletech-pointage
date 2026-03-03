@@ -18,7 +18,7 @@ Application web complète de gestion du temps et de présence développée selon
 - ✅ Département séparé de Poste (correction appliquée)
 - ✅ Support multi-pauses par jour (correction appliquée)
 - ✅ Relations correctement définies sans redondance
-- ✅ Tables : users, departements, postes, personnel, stagiaires, managers, specialites_manager, equipes, pointages, pauses, notifications, logs
+- ✅ Tables : users, departements, postes, personnel, stagiaires, managers, specialites_manager, pointages, pauses, notifications, logs
 
 ### Fonctionnalités implémentées
 

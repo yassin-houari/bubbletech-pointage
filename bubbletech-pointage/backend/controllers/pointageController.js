@@ -373,7 +373,11 @@ const getPointages = async (req, res) => {
     } else if (requesterRole === 'manager') {
       // Les managers voient les pointages de leur équipe
       query += ` AND p.user_id IN (
-        SELECT membre_id FROM equipes WHERE manager_id = ?
+        SELECT u.id
+        FROM users u
+        WHERE u.departement_id IN (
+          SELECT d.id FROM departements d WHERE d.manager_id = ?
+        )
         UNION
         SELECT ?
       )`;
@@ -453,7 +457,11 @@ const getPointageStats = async (req, res) => {
       params.push(requesterId);
     } else if (requesterRole === 'manager') {
       whereClause += ` AND user_id IN (
-        SELECT membre_id FROM equipes WHERE manager_id = ?
+        SELECT u.id
+        FROM users u
+        WHERE u.departement_id IN (
+          SELECT d.id FROM departements d WHERE d.manager_id = ?
+        )
         UNION
         SELECT ?
       )`;

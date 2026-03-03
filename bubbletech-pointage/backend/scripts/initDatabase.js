@@ -36,6 +36,7 @@ const initDatabase = async () => {
         email VARCHAR(255) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         role ENUM('admin', 'manager', 'personnel', 'stagiaire') NOT NULL,
+        departement_id INT NULL,
         code_secret CHAR(4) NOT NULL UNIQUE,
         actif BOOLEAN DEFAULT true,
         doit_changer_mdp BOOLEAN DEFAULT false,
@@ -43,7 +44,8 @@ const initDatabase = async () => {
         date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_email (email),
         INDEX idx_code_secret (code_secret),
-        INDEX idx_role (role)
+        INDEX idx_role (role),
+        INDEX idx_departement_id (departement_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table users créée');
@@ -71,6 +73,38 @@ const initDatabase = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table departements créée');
+
+    // Migration compat: ajouter users.departement_id si absent
+    try {
+      await connection.query('ALTER TABLE users ADD COLUMN departement_id INT NULL');
+      console.log('✅ Colonne users.departement_id ajoutée');
+    } catch (error) {
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        throw error;
+      }
+    }
+
+    // Migration compat: ajouter index users.departement_id si absent
+    try {
+      await connection.query('CREATE INDEX idx_departement_id ON users(departement_id)');
+      console.log('✅ Index users.departement_id ajouté');
+    } catch (error) {
+      if (error.code !== 'ER_DUP_KEYNAME') {
+        throw error;
+      }
+    }
+
+    // Migration compat: lier users.departement_id -> departements.id
+    try {
+      await connection.query(
+        'ALTER TABLE users ADD CONSTRAINT fk_users_departement FOREIGN KEY (departement_id) REFERENCES departements(id) ON DELETE SET NULL'
+      );
+      console.log('✅ FK users.departement_id créée');
+    } catch (error) {
+      if (error.code !== 'ER_DUP_KEY' && error.code !== 'ER_FK_DUP_NAME') {
+        throw error;
+      }
+    }
 
     // Table Poste (pour normalisation 3NF)
     await connection.query(`
@@ -113,19 +147,9 @@ const initDatabase = async () => {
     `);
     console.log('✅ Table stagiaires créée');
 
-    // Table Équipe (relation N-N entre managers et membres d'équipe)
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS equipes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        manager_id INT NOT NULL,
-        membre_id INT NOT NULL,
-        date_ajout TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (manager_id) REFERENCES managers(user_id) ON DELETE CASCADE,
-        FOREIGN KEY (membre_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_manager_membre (manager_id, membre_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-    console.log('✅ Table equipes créée');
+    // Suppression de la table equipes (remplacée par users.departement_id)
+    await connection.query('DROP TABLE IF EXISTS equipes');
+    console.log('✅ Table equipes supprimée si existante');
 
     // Table Pointage (supporte plusieurs sessions par jour)
     await connection.query(`
