@@ -323,7 +323,6 @@ const Personnel = () => {
                       <td>{formatRoleLabel(u.role)}</td>
                       <td>{u.poste_nom || '-'}</td>
                       <td style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn" onClick={() => openEdit(u)}>Éditer</button>
                         <button className="btn btn-danger" onClick={() => handleRemoveTeamMember(u.id)}>Supprimer</button>
                       </td>
                     </tr>
@@ -335,7 +334,7 @@ const Personnel = () => {
         </div>
       )}
 
-      {loading ? (
+      {isAdmin && (loading ? (
         <div>Chargement...</div>
       ) : (
         <div className="table-container">
@@ -377,7 +376,7 @@ const Personnel = () => {
             </tbody>
           </table>
         </div>
-      )}
+      ))}
 
       {showForm && (
         <div className="modal">
