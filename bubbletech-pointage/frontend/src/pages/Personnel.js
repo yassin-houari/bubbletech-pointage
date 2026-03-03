@@ -246,7 +246,7 @@ const Personnel = () => {
   return (
     <div className="personnel-page">
       <div className="page-header">
-        <h1>Personnel</h1>
+        <h1>{isManager ? 'Mon équipe' : 'Personnel'}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             placeholder="Rechercher nom, email..."
@@ -261,7 +261,6 @@ const Personnel = () => {
 
       {isManager && (
         <div className="table-container" style={{ marginBottom: 16 }}>
-          <h3>Mon équipe</h3>
           <div style={{ marginBottom: 12 }}>
             <strong>Département géré :</strong>{' '}
             {managedDepartements.length > 0
