@@ -5,6 +5,7 @@ Application web de gestion du temps et de présence pour l'ASBL BubbleTech.
 ## 📋 Description
 
 BubbleTech Pointage est une plateforme complète permettant :
+
 - ✅ Check-in/Check-out avec code PIN à 4 chiffres
 - 👥 Gestion du personnel et des stagiaires
 - 📊 Statistiques et rapports de présence
@@ -15,6 +16,7 @@ BubbleTech Pointage est une plateforme complète permettant :
 ## 🏗️ Architecture
 
 **Client-Server Architecture**
+
 - **Frontend**: React 18 + React Router + Axios
 - **Backend**: Node.js + Express.js
 - **Base de données**: MySQL
@@ -99,8 +101,8 @@ DB_NAME=bubbletech_pointage
 JWT_SECRET=votre_secret_jwt_tres_long_et_securise
 
 # Brevo
-BREVO_API_KEY=votre_cle_api_brevo
-BREVO_SENDER_EMAIL=noreply@bubbletech.be
+BREVO_API_KEY=cle_api_brevo
+BREVO_SENDER_EMAIL=email_@bubbletech.be
 ```
 
 Initialiser la base de données :
@@ -134,6 +136,7 @@ L'application démarre sur `http://localhost:3000`
 La base de données est normalisée en 3ème forme normale (3NF) :
 
 **Tables principales:**
+
 - `users` - Table mère pour tous les utilisateurs
 - `departements` - Départements de l'entreprise
 - `postes` - Postes par département
@@ -194,12 +197,12 @@ GET    /api/pointages/stats        # Statistiques
 
 ## 👥 Rôles et permissions
 
-| Rôle       | Connexion | Pointage | Voir son profil | Voir équipe | Gérer personnel |
-|------------|-----------|----------|-----------------|-------------|-----------------|
-| Admin      | ✅        | ✅       | ✅              | ✅ (tous)   | ✅              |
-| Manager    | ✅        | ✅       | ✅              | ✅ (équipe) | ✅ (équipe)     |
-| Personnel  | ✅        | ✅       | ✅              | ❌          | ❌              |
-| Stagiaire  | ✅        | ✅       | ✅              | ❌          | ❌              |
+| Rôle      | Connexion | Pointage | Voir son profil | Voir équipe | Gérer personnel |
+| --------- | --------- | -------- | --------------- | ----------- | --------------- |
+| Admin     | ✅        | ✅       | ✅              | ✅ (tous)   | ✅              |
+| Manager   | ✅        | ✅       | ✅              | ✅ (équipe) | ✅ (équipe)     |
+| Personnel | ✅        | ✅       | ✅              | ❌          | ❌              |
+| Stagiaire | ✅        | ✅       | ✅              | ❌          | ❌              |
 
 ## 📧 Notifications Email (Brevo)
 
@@ -269,8 +272,8 @@ curl -X POST http://localhost:5000/api/pointages/checkin \
 -- Dans MySQL
 INSERT INTO users (nom, prenom, email, password, role, code_secret, actif)
 VALUES (
-  'Admin', 
-  'Super', 
+  'Admin',
+  'Super',
   'admin@bubbletech.be',
   '$2a$10$...', -- Hash bcrypt du mot de passe
   'admin',

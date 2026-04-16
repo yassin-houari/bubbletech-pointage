@@ -44,9 +44,9 @@ DB_NAME=bubbletech_pointage
 # Secret JWT (générez une chaîne aléatoire longue)
 JWT_SECRET=changez_ceci_par_une_chaine_aleatoire_tres_longue
 
-# Brevo (optionnel pour les emails)
-BREVO_API_KEY=votre_cle_api_brevo
-BREVO_SENDER_EMAIL=noreply@bubbletech.be
+# Brevo
+BREVO_API_KEY=cle_api_brevo
+BREVO_SENDER_EMAIL=email_@bubbletech.be
 ```
 
 ### Frontend
@@ -62,6 +62,7 @@ Le frontend est déjà configuré. Vous pouvez modifier `frontend/.env` si néce
 ```
 
 Le script va :
+
 1. Installer les dépendances
 2. Initialiser la base de données
 3. Démarrer le backend et le frontend
@@ -102,7 +103,7 @@ VALUES (
   'Admin',
   'Super',
   'admin@bubbletech.be',
-  '$2a$10$8BaFczR5zkkdjLlTW5Z6s.KlNil5sfQbz3VZglTH3b4H9dUkqDCH',  -- Voir ci-dessous pour générer le hash
+  '$2a$10$jrbVYuNPnzX.KLKWPpLVjOS80Cb06WBSD/mm2.D7dEbQ79WWw3VHu',  -- Voir ci-dessous pour générer le hash
   'admin',
   '0000',
   true,
@@ -126,27 +127,33 @@ Une fois le premier admin créé, utilisez l'interface pour créer d'autres util
 Ouvrez votre navigateur sur **http://localhost:3000**
 
 ### Connexion Admin
+
 - Email: `admin@bubbletech.be`
 - Mot de passe: celui que vous avez configuré
 
 ### Pointage rapide
+
 Allez sur **http://localhost:3000/pointage**
+
 - Code PIN: `0000` (pour l'admin créé)
 
 ## 📊 Fonctionnalités disponibles
 
 ### Pour tous les utilisateurs
+
 - ✅ Pointage rapide (Check-in/Check-out)
 - ✅ Consultation de ses propres pointages
 - ✅ Tableau de bord personnel
 - ✅ Changement de mot de passe
 
 ### Pour les Managers
+
 - ✅ Consultation des pointages de l'équipe
 - ✅ Statistiques de l'équipe
 - ✅ Modification des membres de l'équipe
 
 ### Pour les Administrateurs
+
 - ✅ Gestion complète du personnel
 - ✅ Création/Modification/Suppression d'utilisateurs
 - ✅ Statistiques globales
@@ -196,6 +203,7 @@ Pour activer l'envoi d'emails :
 ### 1. Créer des utilisateurs
 
 En tant qu'admin, allez dans "Personnel" et créez :
+
 - Un manager
 - Un employé
 - Un stagiaire
@@ -227,6 +235,7 @@ npm run debug-dev
 ```
 
 Cela affichera :
+
 - 📥 Toutes les requêtes HTTP entrantes
 - 📤 Toutes les réponses avec le code de statut et le temps d'exécution
 - 🔍 Détails complets des headers, body et réponses
@@ -261,9 +270,9 @@ npm run dev
 
 ```javascript
 // Dans vos composants
-console.log('Mon log:', variable);
-console.error('Erreur:', error);
-console.warn('Attention:', message);
+console.log("Mon log:", variable);
+console.error("Erreur:", error);
+console.warn("Attention:", message);
 ```
 
 ### Erreurs courantes et solutions
@@ -301,6 +310,7 @@ npm run debug-dev
 #### ❌ Erreurs CORS (accès au backend refusé)
 
 1. Vérifier que `backend/.env` contient :
+
    ```
    FRONTEND_URL=http://localhost:3000
    ```
@@ -313,7 +323,6 @@ npm run debug-dev
 
 - [Documentation complète](README.md)
 - [Architecture technique](ARCHITECTURE.md)
-
 
 ## 💡 Besoin d'aide ?
 
