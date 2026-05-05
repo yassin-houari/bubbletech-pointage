@@ -130,7 +130,10 @@ const Personnel = () => {
     setEditingUser({
       ...u,
       password: '',
-      date_embauche: u.date_embauche ? format(new Date(u.date_embauche), 'yyyy-MM-dd') : ''
+      date_embauche: u.date_embauche ? format(new Date(u.date_embauche), 'yyyy-MM-dd') : '',
+      date_debut: u.date_debut ? format(new Date(u.date_debut), 'yyyy-MM-dd') : '',
+      date_fin: u.date_fin ? format(new Date(u.date_fin), 'yyyy-MM-dd') : '',
+      encadrant_id: u.encadrant_id || ''
     });
     setSelectedDepartementId(u.departement_id ? String(u.departement_id) : '');
     setSelectedPosteId(u.poste_id ? String(u.poste_id) : '');
@@ -151,7 +154,10 @@ const Personnel = () => {
       doit_changer_mdp: false,
       code_secret: '',
       poste_nom: '',
-      date_embauche: ''
+      date_embauche: '',
+      date_debut: '',
+      date_fin: '',
+      encadrant_id: ''
     });
     setSelectedDepartementId('');
     setSelectedPosteId('');
@@ -192,6 +198,17 @@ const Personnel = () => {
         payload.departement_id = assignedDepartementId ? Number(assignedDepartementId) : null;
       } else {
         delete payload.departement_id;
+      }
+
+      if (payload.role === 'stagiaire') {
+        if (!isEdit && (!payload.date_debut || !payload.date_fin)) {
+          alert('Veuillez saisir les dates de début et de fin de stage.');
+          return;
+        }
+        if (payload.date_debut === '') delete payload.date_debut;
+        if (payload.date_fin === '') delete payload.date_fin;
+        if (payload.encadrant_id === '') delete payload.encadrant_id;
+        else if (payload.encadrant_id) payload.encadrant_id = Number(payload.encadrant_id);
       }
 
       if (payload.role === 'personnel') {
@@ -493,6 +510,44 @@ const Personnel = () => {
                     placeholder="Ex: IT"
                   />
                 </div>
+              )}
+              {editingUser.role === 'stagiaire' && (
+                <>
+                  <div>
+                    <label>Date de début de stage</label>
+                    <input
+                      type="date"
+                      value={editingUser.date_debut || ''}
+                      onChange={(e) => setEditingUser({ ...editingUser, date_debut: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label>Date de fin de stage</label>
+                    <input
+                      type="date"
+                      value={editingUser.date_fin || ''}
+                      onChange={(e) => setEditingUser({ ...editingUser, date_fin: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label>Encadrant (optionnel)</label>
+                    <select
+                      value={editingUser.encadrant_id || ''}
+                      onChange={(e) => setEditingUser({ ...editingUser, encadrant_id: e.target.value })}
+                    >
+                      <option value="">Aucun encadrant</option>
+                      {users
+                        .filter(u => ['manager', 'personnel'].includes(u.role))
+                        .map(u => (
+                          <option key={u.id} value={String(u.id)}>
+                            {u.prenom} {u.nom} - {formatRoleLabel(u.role)}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </>
               )}
               {editingUser.role === 'personnel' && (
                 <>
