@@ -400,7 +400,7 @@ const getPointageStats = async (req, res) => {
          FROM pointages p
          INNER JOIN users u ON u.id = p.user_id
          WHERE p.date_pointage = CURDATE()
-           AND p.statut = 'en_cours'
+           AND p.statut IN ('en_cours', 'termine')
            AND u.actif = 1
            AND (
              u.departement_id IN (SELECT d.id FROM departements d WHERE d.manager_id = ?)
@@ -420,7 +420,7 @@ const getPointageStats = async (req, res) => {
          FROM pointages p
          INNER JOIN users u ON u.id = p.user_id
          WHERE p.date_pointage = CURDATE()
-           AND p.statut = 'en_cours'
+           AND p.statut IN ('en_cours', 'termine')
            AND u.actif = 1`
       );
       presentToday = presentRows?.[0]?.present || 0;
@@ -431,7 +431,7 @@ const getPointageStats = async (req, res) => {
          FROM pointages
          WHERE user_id = ?
            AND date_pointage = CURDATE()
-           AND statut = 'en_cours'`,
+           AND statut IN ('en_cours', 'termine')`,
         [requesterId]
       );
       presentToday = presentRows?.[0]?.present > 0 ? 1 : 0;

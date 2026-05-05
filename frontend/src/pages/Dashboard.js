@@ -92,12 +92,18 @@ const Dashboard = () => {
       }
     });
     
-    // Sort sessions by checkin_at
+    // Sort sessions within each group by checkin_at ASC
     Object.values(grouped).forEach(group => {
       group.sessions.sort((a, b) => new Date(a.checkin_at) - new Date(b.checkin_at));
+      group.first_checkin = group.sessions[0]?.checkin_at || null;
     });
-    
-    return Object.values(grouped);
+
+    // Sort groups: most recent date first, then earliest arrival first within the same day
+    return Object.values(grouped).sort((a, b) => {
+      const dateDiff = new Date(b.date_pointage) - new Date(a.date_pointage);
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(a.first_checkin) - new Date(b.first_checkin);
+    });
   };
 
   const renderSessions = (sessions) => {
@@ -270,7 +276,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {groupPointagesByDateAndUser(pointages).slice(0, 10).map((group) => (
+                {groupPointagesByDateAndUser(pointages).map((group) => (
                   <tr key={`${group.date_pointage}:${group.user_id}`}>
                     {isAdminOrManager && (
                       <td>{group.prenom} {group.nom}</td>
