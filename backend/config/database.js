@@ -6,7 +6,7 @@ const debug = require('debug')('bubbletech:db');
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'admin123',
+  password: process.env.DB_PASSWORD ?? '',
   database: process.env.DB_NAME || 'bubbletech_pointage',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
