@@ -108,6 +108,7 @@ const createUser = async (req, res) => {
       password,
       doit_changer_mdp,
       code_secret,
+      actif,
       // Données personnel
       poste_id,
       poste_nom,
@@ -217,7 +218,7 @@ const createUser = async (req, res) => {
     const [userResult] = await connection.query(
       `INSERT INTO users (nom, prenom, email, password, role, departement_id, code_secret, doit_changer_mdp, actif)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nom, prenom, email, hashedPassword, role, resolvedDepartementId, codeSecret, forceChange, true]
+      [nom, prenom, email, hashedPassword, role, resolvedDepartementId, codeSecret, forceChange, actif ?? true]
     );
 
     const userId = userResult.insertId;
