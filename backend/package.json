@@ -21,6 +21,9 @@
   ],
   "author": "BubbleTech",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.x"
+  },
   "dependencies": {
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",

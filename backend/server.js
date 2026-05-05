@@ -137,17 +137,11 @@ const startServer = async () => {
   }
 };
 
-// Gestion propre de l'arrêt
-process.on('SIGTERM', () => {
-  console.log('\n👋 Arrêt du serveur...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('\n👋 Arrêt du serveur...');
-  process.exit(0);
-});
-
-startServer();
+// Démarrage local uniquement (pas en serverless Vercel)
+if (require.main === module) {
+  process.on('SIGTERM', () => { console.log('\n👋 Arrêt du serveur...'); process.exit(0); });
+  process.on('SIGINT',  () => { console.log('\n👋 Arrêt du serveur...'); process.exit(0); });
+  startServer();
+}
 
 module.exports = app;
