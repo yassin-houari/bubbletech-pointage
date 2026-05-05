@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { testConnection } = require('./config/database');
 const { logAction } = require('./middleware/logger');
+const { autoCheckoutExpiredSessions } = require('./controllers/pointageController');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -95,6 +96,10 @@ const startServer = async () => {
       console.log('💡 Vérifiez votre fichier .env et que MySQL est démarré');
       process.exit(1);
     }
+
+    // Auto-checkout toutes les 5 minutes
+    autoCheckoutExpiredSessions();
+    setInterval(autoCheckoutExpiredSessions, 5 * 60 * 1000);
 
     app.listen(PORT, () => {
       console.log('\n🚀 ================================');

@@ -14,6 +14,39 @@ const hasColumn = async (table, column) => {
   return exists;
 };
 
+const MAX_WORK_HOURS = 10;
+
+// Ferme automatiquement les sessions ouvertes depuis plus de MAX_WORK_HOURS heures
+const autoCheckoutExpiredSessions = async () => {
+  try {
+    const [expired] = await pool.query(
+      `SELECT id, checkin_at FROM pointages
+       WHERE statut = 'en_cours'
+         AND checkin_at IS NOT NULL
+         AND checkin_at <= NOW() - INTERVAL ? HOUR`,
+      [MAX_WORK_HOURS]
+    );
+
+    if (expired.length === 0) return;
+
+    for (const p of expired) {
+      const checkinTime = new Date(p.checkin_at);
+      const checkoutTime = new Date(checkinTime.getTime() + MAX_WORK_HOURS * 60 * 60 * 1000);
+
+      await pool.query(
+        `UPDATE pointages
+         SET checkout_at = ?, statut = 'termine', duree_travail_minutes = ?
+         WHERE id = ?`,
+        [checkoutTime, MAX_WORK_HOURS * 60, p.id]
+      );
+    }
+
+    console.log(`⏱️  Auto-checkout: ${expired.length} session(s) fermée(s) après ${MAX_WORK_HOURS}h`);
+  } catch (err) {
+    console.error('Erreur auto-checkout:', err.message);
+  }
+};
+
 // Check-in (arrivée)
 const checkIn = async (req, res) => {
   const connection = await pool.getConnection();
@@ -29,6 +62,10 @@ const checkIn = async (req, res) => {
         message: 'Acces interdit pour ce pointage'
       });
     }
+
+    // Fermer les sessions expirées avant d'en créer une nouvelle
+    await autoCheckoutExpiredSessions();
+
     const now = new Date();
     const today = now.toISOString().split('T')[0];
 
@@ -423,5 +460,6 @@ module.exports = {
   checkIn,
   checkOut,
   getPointages,
-  getPointageStats
+  getPointageStats,
+  autoCheckoutExpiredSessions
 };
