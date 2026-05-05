@@ -10,7 +10,9 @@
    "debug-dev": "cross-env DEBUG=bubbletech:* nodemon server.js",
     "test": "jest --runInBand",
     "test:brevo-live": "node scripts/testBrevoEmail.js",
-    "init-db": "node scripts/initDatabase.js"
+    "init-db": "node scripts/initDatabase.js",
+    "seed": "node scripts/seedDatabase.js",
+    "setup": "node scripts/initDatabase.js && node scripts/seedDatabase.js"
   },
   "keywords": [
     "pointage",
