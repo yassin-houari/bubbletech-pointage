@@ -19,35 +19,16 @@ const notificationRoutes = require('./routes/notifications');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS manuel - doit être EN PREMIER, avant helmet et tout le reste
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://bubbletech-pointage-4kdx-one.vercel.app',
-  'https://bubbletech-pointage.vercel.app',
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowed =
-    !origin ||
-    allowedOrigins.includes(origin) ||
-    /^https:\/\/bubbletech-pointage.*\.vercel\.app$/.test(origin);
-
-  if (allowed) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-requested-with');
-  }
-
-  // Répondre immédiatement aux preflight OPTIONS
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  next();
-});
+// CORS - autoriser toutes les origines (sécurité assurée par JWT)
+const corsOptions = {
+  origin: true,           // reflète l'origine de la requête
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','x-requested-with']
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // preflight pour toutes les routes
 
 // Middleware de sécurité (après CORS)
 app.use(helmet({ crossOriginResourcePolicy: false }));
