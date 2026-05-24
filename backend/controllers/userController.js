@@ -137,18 +137,23 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Vérifier si l'email existe déjà
+    // Vérifier si l'email existe déjà (actif ou inactif)
     const [existingUsers] = await connection.query(
-      'SELECT id FROM users WHERE email = ?',
+      'SELECT id, actif FROM users WHERE email = ?',
       [email]
     );
 
     if (existingUsers.length > 0) {
-      await connection.rollback();
-      return res.status(409).json({ 
-        success: false, 
-        message: 'Cet email est déjà utilisé' 
-      });
+      const existing = existingUsers[0];
+      if (existing.actif) {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          message: 'Un employé actif existe déjà avec cet email'
+        });
+      }
+      // Employé inactif (ancien employé réembauché) → supprimer l'ancien enregistrement
+      await connection.query('DELETE FROM users WHERE id = ?', [existing.id]);
     }
 
     // Mot de passe : si fourni, hasher, sinon générer un mot de passe temporaire
