@@ -3,7 +3,7 @@ const axios = require('axios');
 class BrevoService {
   constructor() {
     this.apiKey = process.env.BREVO_API_KEY;
-    this.senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@bubbletech.be';
+    this.senderEmail = process.env.BREVO_SENDER_EMAIL || 'yassinhoua123@gmail.com';
     this.senderName = process.env.BREVO_SENDER_NAME || 'BubbleTech Pointage';
     this.apiUrl = 'https://api.brevo.com/v3/smtp/email';
   }

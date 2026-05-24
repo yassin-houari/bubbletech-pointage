@@ -195,7 +195,7 @@ Pour activer l'envoi d'emails :
 4. Ajouter dans `backend/.env` :
    ```
    BREVO_API_KEY=xkeysib-xxxxx
-   BREVO_SENDER_EMAIL=noreply@bubbletech.be
+   BREVO_SENDER_EMAIL=yassinhoua123@gmail.com
    ```
 
 ## 📱 Tester l'application

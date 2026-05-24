@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Service | Where-Object { $_.Name -match \"sql|mysql|maria|db\" } | Select-Object Name, Status)"
+    ]
+  }
+}
