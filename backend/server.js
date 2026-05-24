@@ -21,10 +21,31 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware de sécurité
 app.use(helmet());
+
+// CORS - liste des origines autorisées
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://bubbletech-pointage-4kdx-one.vercel.app',
+  'https://bubbletech-pointage.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: (origin, callback) => {
+    // Autoriser les requêtes sans origin (Postman, mobile, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Autoriser tous les sous-domaines vercel.app du projet
+    if (/^https:\/\/bubbletech-pointage.*\.vercel\.app$/.test(origin)) return callback(null, true);
+    callback(new Error('CORS non autorisé: ' + origin));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
+
+// Gérer les preflight OPTIONS explicitement
+app.options('*', cors());
 
 // Limite de taux pour prévenir les abus
 const limiter = rateLimit({
