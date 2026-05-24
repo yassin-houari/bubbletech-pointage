@@ -272,17 +272,31 @@ const createUser = async (req, res) => {
       email,
       code_secret: codeSecret
     };
-    
-    await brevoService.sendWelcomeEmail(newUser, temporaryPassword);
+
+    let emailSent = false;
+    try {
+      const emailResult = await brevoService.sendWelcomeEmail(newUser, temporaryPassword);
+      emailSent = emailResult.success;
+      if (!emailResult.success) {
+        console.warn('⚠️  Email de bienvenue non envoyé à', email, ':', emailResult.error);
+      } else {
+        console.log('📧 Email de bienvenue envoyé à:', email);
+      }
+    } catch (emailErr) {
+      console.warn('⚠️  Erreur email (utilisateur créé quand même):', emailErr.message);
+    }
 
     const responsePayload = {
       success: true,
-      message: 'Utilisateur créé avec succès',
+      message: emailSent
+        ? 'Utilisateur créé avec succès — email de bienvenue envoyé'
+        : 'Utilisateur créé avec succès — email de bienvenue non envoyé (vérifiez la config Brevo)',
       userId,
-      codeSecret
+      codeSecret,
+      email_sent: emailSent
     };
     if (temporaryPassword) {
-      responsePayload.temporaryPassword = temporaryPassword; // in production avoid returning
+      responsePayload.temporaryPassword = temporaryPassword;
     }
 
     res.status(201).json(responsePayload);
