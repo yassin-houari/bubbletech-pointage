@@ -1,16 +1,11 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const SENDER = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
+const SENDER_NAME = 'BubbleTech Pointage';
 
 class EmailService {
-  constructor() {
-    this.transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER || 'yassinhoua123@gmail.com',
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
-  }
-
   async sendWelcomeEmail(user, temporaryPassword) {
     const passwordSection = temporaryPassword
       ? `<p><strong>Mot de passe temporaire :</strong></p>
@@ -90,17 +85,23 @@ class EmailService {
     `;
 
     try {
-      const info = await this.transporter.sendMail({
-        from: `"BubbleTech Pointage" <${process.env.GMAIL_USER || 'yassinhoua123@gmail.com'}>`,
-        to: user.email,
+      const { data, error } = await resend.emails.send({
+        from: `${SENDER_NAME} <${SENDER}>`,
+        to: [user.email],
         subject: '🎉 Bienvenue sur BubbleTech Pointage — Vos identifiants',
         html
       });
-      console.log('📧 Email envoyé à:', user.email, '| id:', info.messageId);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('❌ Erreur envoi email à', user.email, ':', error.message);
-      return { success: false, error: error.message };
+
+      if (error) {
+        console.error('❌ Erreur Resend envoi welcome à', user.email, ':', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('📧 Email welcome envoyé à:', user.email, '| id:', data.id);
+      return { success: true, messageId: data.id };
+    } catch (err) {
+      console.error('❌ Exception Resend welcome à', user.email, ':', err.message);
+      return { success: false, error: err.message };
     }
   }
 
@@ -144,17 +145,23 @@ class EmailService {
     `;
 
     try {
-      const info = await this.transporter.sendMail({
-        from: `"BubbleTech Pointage" <${process.env.GMAIL_USER || 'yassinhoua123@gmail.com'}>`,
-        to: user.email,
+      const { data, error } = await resend.emails.send({
+        from: `${SENDER_NAME} <${SENDER}>`,
+        to: [user.email],
         subject: '🔐 Réinitialisation de votre mot de passe BubbleTech',
         html
       });
-      console.log('📧 Email reset envoyé à:', user.email);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('❌ Erreur reset email:', error.message);
-      return { success: false, error: error.message };
+
+      if (error) {
+        console.error('❌ Erreur Resend reset à', user.email, ':', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('📧 Email reset envoyé à:', user.email, '| id:', data.id);
+      return { success: true, messageId: data.id };
+    } catch (err) {
+      console.error('❌ Exception Resend reset à', user.email, ':', err.message);
+      return { success: false, error: err.message };
     }
   }
 }
