@@ -173,6 +173,27 @@ const checkOut = async (req, res) => {
     const checkoutTime = checkoutAt;
     let dureeTravailMinutes = Math.floor((checkoutTime - checkinTime) / 60000);
 
+    // Fermer la pause active si elle existe
+    const [activePauses] = await connection.query(
+      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_pause IS NULL',
+      [pointage.id]
+    );
+    if (activePauses.length > 0) {
+      const pause = activePauses[0];
+      const pauseDuration = Math.floor((checkoutTime - new Date(pause.debut_pause)) / 60000);
+      await connection.query(
+        'UPDATE pauses SET fin_pause = ?, duree_minutes = ? WHERE id = ?',
+        [checkoutTime, pauseDuration, pause.id]
+      );
+    }
+
+    // Déduire le temps de pause total du temps de travail
+    const [pauseStats] = await connection.query(
+      'SELECT COALESCE(SUM(duree_minutes), 0) AS total FROM pauses WHERE pointage_id = ?',
+      [pointage.id]
+    );
+    dureeTravailMinutes = Math.max(0, dureeTravailMinutes - Number(pauseStats[0].total));
+
     // Mettre à jour le pointage
     const useCheckoutAt = await hasColumn('pointages', 'checkout_at');
     if (useCheckoutAt) {
@@ -228,7 +249,10 @@ const getPointages = async (req, res) => {
       const orderCol = hasCheckinAt ? 'p.checkin_at' : (hasHeureCheckin ? 'p.heure_checkin' : 'p.id');
 
       const [pointages] = await pool.query(
-        `SELECT p.*, u.nom, u.prenom, u.email, u.role
+        `SELECT p.*, u.nom, u.prenom, u.email, u.role,
+           (SELECT COUNT(*) FROM pauses WHERE pointage_id = p.id) AS nb_pauses,
+           (SELECT id FROM pauses WHERE pointage_id = p.id AND fin_pause IS NULL LIMIT 1) AS pause_active_id,
+           COALESCE((SELECT SUM(duree_minutes) FROM pauses WHERE pointage_id = p.id), 0) AS duree_pauses_minutes
          FROM pointages p
          JOIN users u ON p.user_id = u.id
          WHERE p.user_id = ?
@@ -245,7 +269,10 @@ const getPointages = async (req, res) => {
     }
 
     let query = `
-      SELECT p.*, u.nom, u.prenom, u.email, u.role
+      SELECT p.*, u.nom, u.prenom, u.email, u.role,
+        (SELECT COUNT(*) FROM pauses WHERE pointage_id = p.id) AS nb_pauses,
+        (SELECT id FROM pauses WHERE pointage_id = p.id AND fin_pause IS NULL LIMIT 1) AS pause_active_id,
+        COALESCE((SELECT SUM(duree_minutes) FROM pauses WHERE pointage_id = p.id), 0) AS duree_pauses_minutes
       FROM pointages p
       JOIN users u ON p.user_id = u.id
       WHERE 1=1
@@ -456,10 +483,95 @@ const getPointageStats = async (req, res) => {
   }
 };
 
+// Démarrer une pause
+const startPause = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // Trouver la session en cours
+    const [pointages] = await pool.query(
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
+      [userId]
+    );
+    if (pointages.length === 0) {
+      return res.status(400).json({ success: false, message: 'Aucune session en cours' });
+    }
+    const pointage = pointages[0];
+
+    // Vérifier qu'il n'y a pas déjà une pause active
+    const [activePauses] = await pool.query(
+      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_pause IS NULL',
+      [pointage.id]
+    );
+    if (activePauses.length > 0) {
+      return res.status(400).json({ success: false, message: 'Une pause est déjà en cours' });
+    }
+
+    const now = new Date();
+    const [result] = await pool.query(
+      'INSERT INTO pauses (pointage_id, debut_pause) VALUES (?, ?)',
+      [pointage.id, now]
+    );
+
+    res.json({
+      success: true,
+      message: 'Pause démarrée',
+      pause: { id: result.insertId, pointage_id: pointage.id, debut_pause: now }
+    });
+  } catch (error) {
+    console.error('Erreur startPause:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors du démarrage de la pause' });
+  }
+};
+
+// Terminer une pause
+const endPause = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // Trouver la session en cours
+    const [pointages] = await pool.query(
+      'SELECT * FROM pointages WHERE user_id = ? AND statut = "en_cours" ORDER BY id DESC LIMIT 1',
+      [userId]
+    );
+    if (pointages.length === 0) {
+      return res.status(400).json({ success: false, message: 'Aucune session en cours' });
+    }
+    const pointage = pointages[0];
+
+    // Trouver la pause active
+    const [activePauses] = await pool.query(
+      'SELECT * FROM pauses WHERE pointage_id = ? AND fin_pause IS NULL',
+      [pointage.id]
+    );
+    if (activePauses.length === 0) {
+      return res.status(400).json({ success: false, message: 'Aucune pause en cours' });
+    }
+
+    const pause = activePauses[0];
+    const now = new Date();
+    const dureeMinutes = Math.max(0, Math.floor((now - new Date(pause.debut_pause)) / 60000));
+
+    await pool.query(
+      'UPDATE pauses SET fin_pause = ?, duree_minutes = ? WHERE id = ?',
+      [now, dureeMinutes, pause.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Pause terminée',
+      pause: { id: pause.id, fin_pause: now, duree_minutes: dureeMinutes }
+    });
+  } catch (error) {
+    console.error('Erreur endPause:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur lors de la fin de la pause' });
+  }
+};
+
 module.exports = {
   checkIn,
   checkOut,
   getPointages,
   getPointageStats,
-  autoCheckoutExpiredSessions
+  autoCheckoutExpiredSessions,
+  startPause,
+  endPause
 };

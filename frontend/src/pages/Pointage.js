@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
-import { FiClock, FiLogIn, FiLogOut, FiCheckCircle } from 'react-icons/fi';
+import { FiClock, FiLogIn, FiLogOut, FiCheckCircle, FiCoffee } from 'react-icons/fi';
 import '../styles/Pointage.css';
 
 const Pointage = () => {
@@ -14,6 +14,8 @@ const Pointage = () => {
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [pointageUser, setPointageUser] = useState(null);
+  const [activeSession, setActiveSession] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   const activeUser = isAuthenticated ? user : pointageUser;
 
@@ -114,6 +116,35 @@ const Pointage = () => {
     setLoading(false);
   };
 
+  const handleStartPause = async () => {
+    setLoading(true);
+    try {
+      const response = await pointageService.startPause();
+      if (response.data.success) {
+        setMessage({ type: 'success', text: 'Pause démarrée' });
+        if (activeUser?.id) loadSessions(activeUser.id);
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du démarrage de la pause' });
+    }
+    setLoading(false);
+  };
+
+  const handleEndPause = async () => {
+    setLoading(true);
+    try {
+      const response = await pointageService.endPause();
+      if (response.data.success) {
+        const mins = response.data.pause.duree_minutes;
+        setMessage({ type: 'success', text: `Pause terminée — durée : ${Math.floor(mins/60)}h${mins%60}min` });
+        if (activeUser?.id) loadSessions(activeUser.id);
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors de la fin de la pause' });
+    }
+    setLoading(false);
+  };
+
   const resetForm = () => {
     setCode('');
     setIsVerified(false);
@@ -137,6 +168,12 @@ const Pointage = () => {
     if (isVerified && activeUser?.id) loadSessions(activeUser.id);
     else setSessions([]);
   }, [isVerified, activeUser]);
+
+  useEffect(() => {
+    const active = sessions.find(s => s.statut === 'en_cours') || null;
+    setActiveSession(active);
+    setIsPaused(active ? active.pause_active_id != null : false);
+  }, [sessions]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -200,25 +237,45 @@ const Pointage = () => {
             </div>
 
             <div className="actions-grid">
-              <button
-                onClick={handleCheckIn}
-                disabled={loading}
-                className="btn btn-success btn-action"
-              >
-                <FiLogIn />
-                <span>Check-In</span>
-                <small>Arrivée</small>
-              </button>
+              {!activeSession ? (
+                <button
+                  onClick={handleCheckIn}
+                  disabled={loading}
+                  className="btn btn-success btn-action"
+                  style={{ gridColumn: '1 / -1' }}
+                >
+                  <FiLogIn />
+                  <span>Check-In</span>
+                  <small>Arrivée</small>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={loading}
+                    className="btn btn-danger btn-action"
+                  >
+                    <FiLogOut />
+                    <span>Check-Out</span>
+                    <small>Départ</small>
+                  </button>
 
-              <button
-                onClick={handleCheckOut}
-                disabled={loading}
-                className="btn btn-danger btn-action"
-              >
-                <FiLogOut />
-                <span>Check-Out</span>
-                <small>Départ</small>
-              </button>
+                  <button
+                    onClick={isPaused ? handleEndPause : handleStartPause}
+                    disabled={loading}
+                    className="btn btn-action"
+                    style={{
+                      background: isPaused ? '#f59e0b' : '#6366f1',
+                      color: 'white',
+                      border: 'none'
+                    }}
+                  >
+                    <FiCoffee />
+                    <span>{isPaused ? 'Reprendre' : 'Pause'}</span>
+                    <small>{isPaused ? 'Fin de pause' : 'Début de pause'}</small>
+                  </button>
+                </>
+              )}
             </div>
 
             <button
@@ -247,6 +304,22 @@ const Pointage = () => {
                         <span>Durée: {s.duree_travail_minutes ? `${Math.floor(s.duree_travail_minutes/60)}h${s.duree_travail_minutes%60}m` : '-'}</span>
                         <span style={{marginLeft: '1rem'}}>Statut: {s.statut}</span>
                       </div>
+                      {s.nb_pauses > 0 && (
+                        <div className="session-pauses">
+                          <FiCoffee style={{marginRight: '4px', color: '#f59e0b'}} />
+                          <span>{s.nb_pauses} pause{s.nb_pauses > 1 ? 's' : ''}</span>
+                          {s.duree_pauses_minutes > 0 && (
+                            <span style={{marginLeft: '8px', color: '#6b7280'}}>
+                              ({Math.floor(s.duree_pauses_minutes/60)}h{s.duree_pauses_minutes%60}min)
+                            </span>
+                          )}
+                          {s.pause_active_id && (
+                            <span style={{marginLeft: '8px', color: '#f59e0b', fontWeight: '600'}}>
+                              — En pause
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

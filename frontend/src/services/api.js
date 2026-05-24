@@ -112,16 +112,22 @@ export const posteService = {
 
 // Services de pointage
 export const pointageService = {
-  checkIn: () => 
+  checkIn: () =>
     api.post('/pointages/checkin'),
-  
-  checkOut: () => 
+
+  checkOut: () =>
     api.post('/pointages/checkout'),
-  
-  getAll: (params) => 
+
+  startPause: () =>
+    api.post('/pointages/pause/start'),
+
+  endPause: () =>
+    api.post('/pointages/pause/end'),
+
+  getAll: (params) =>
     api.get('/pointages', { params }),
-  
-  getStats: (params) => 
+
+  getStats: (params) =>
     api.get('/pointages/stats', { params })
 };
 
