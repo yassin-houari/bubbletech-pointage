@@ -1,6 +1,12 @@
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialisation défensive — ne pas crasher si la clé est absente
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+  console.warn('⚠️  RESEND_API_KEY non défini — emails désactivés');
+}
 
 const SENDER = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
 const SENDER_NAME = 'BubbleTech Pointage';
@@ -84,6 +90,11 @@ class EmailService {
       </html>
     `;
 
+    if (!resend) {
+      console.warn('⚠️  Email non envoyé (RESEND_API_KEY manquant)');
+      return { success: false, error: 'RESEND_API_KEY non configuré' };
+    }
+
     try {
       const { data, error } = await resend.emails.send({
         from: `${SENDER_NAME} <${SENDER}>`,
@@ -143,6 +154,11 @@ class EmailService {
       </body>
       </html>
     `;
+
+    if (!resend) {
+      console.warn('⚠️  Email reset non envoyé (RESEND_API_KEY manquant)');
+      return { success: false, error: 'RESEND_API_KEY non configuré' };
+    }
 
     try {
       const { data, error } = await resend.emails.send({
