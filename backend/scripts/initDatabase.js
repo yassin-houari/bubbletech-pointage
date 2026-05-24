@@ -24,7 +24,6 @@ const initDatabase = async () => {
 
     await connection.query('DROP TABLE IF EXISTS specialites_manager');
     await connection.query('DROP TABLE IF EXISTS equipes');
-    await connection.query('DROP TABLE IF EXISTS pauses');
     console.log('✅ Anciennes tables obsolètes supprimées si existantes');
 
     await connection.query(`
@@ -85,6 +84,16 @@ const initDatabase = async () => {
     console.log('✅ Table postes créée');
 
     await connection.query(`
+      CREATE TABLE IF NOT EXISTS specialites (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Table specialites créée');
+
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS personnel (
         user_id INT PRIMARY KEY,
         poste_id INT NOT NULL,
@@ -127,6 +136,19 @@ const initDatabase = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     console.log('✅ Table pointages créée');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS pauses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        pointage_id INT NOT NULL,
+        debut_pause DATETIME NOT NULL,
+        fin_pause DATETIME NULL,
+        duree_minutes INT NULL,
+        FOREIGN KEY (pointage_id) REFERENCES pointages(id) ON DELETE CASCADE,
+        INDEX idx_pointage_id (pointage_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('✅ Table pauses créée');
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS notifications (
