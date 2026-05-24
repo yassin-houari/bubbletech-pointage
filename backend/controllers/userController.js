@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
-const brevoService = require('../services/brevoService');
+const emailService = require('../services/emailService');
 const { generateRandomPassword } = require('./authController');
 
 // Générer un code secret unique à 4 chiffres
@@ -280,7 +280,7 @@ const createUser = async (req, res) => {
 
     let emailSent = false;
     try {
-      const emailResult = await brevoService.sendWelcomeEmail(newUser, temporaryPassword);
+      const emailResult = await emailService.sendWelcomeEmail(newUser, temporaryPassword);
       emailSent = emailResult.success;
       if (!emailResult.success) {
         console.warn('⚠️  Email de bienvenue non envoyé à', email, ':', emailResult.error);

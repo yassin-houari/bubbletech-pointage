@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
-const brevoService = require('../services/brevoService');
+const emailService = require('../services/emailService');
 
 // Générer un token JWT
 const generateToken = (user, options = {}) => {
@@ -222,7 +222,7 @@ const requestPasswordReset = async (req, res) => {
     );
 
     // Envoyer l'email via Brevo
-    await brevoService.sendPasswordResetEmail(user, newPassword);
+    await emailService.sendPasswordResetEmail(user, newPassword);
 
     res.json({
       success: true,
