@@ -71,8 +71,12 @@ app.get('/api/health', (req, res) => {
     success: true,
     message: 'API BubbleTech Pointage est opérationnelle',
     timestamp: new Date().toISOString(),
-    resend_key_set: !!process.env.RESEND_API_KEY,
-    resend_key_prefix: process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.substring(0, 8) + '...' : 'NOT SET'
+    env_vars: {
+      BREVO_SMTP_LOGIN: process.env.BREVO_SMTP_LOGIN || 'NOT SET',
+      BREVO_SMTP_PASSWORD: process.env.BREVO_SMTP_PASSWORD ? process.env.BREVO_SMTP_PASSWORD.substring(0, 10) + '...' : 'NOT SET',
+      RESEND_API_KEY: process.env.RESEND_API_KEY ? 'SET' : 'NOT SET',
+      FRONTEND_URL: process.env.FRONTEND_URL || 'NOT SET'
+    }
   });
 });
 
