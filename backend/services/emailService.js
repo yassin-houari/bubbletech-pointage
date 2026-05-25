@@ -1,7 +1,8 @@
 const axios = require('axios');
 
 const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY;
-const FROM_EMAIL = process.env.MAILERSEND_FROM_EMAIL || 'noreply@test-y7zpl98rkzr45vx6.mlsender.net';
+const _fromRaw = process.env.MAILERSEND_FROM_EMAIL || 'test-y7zpl98rkzr45vx6.mlsender.net';
+const FROM_EMAIL = _fromRaw.includes('@') ? _fromRaw : `noreply@${_fromRaw}`;
 const SENDER_NAME = 'BubbleTech Pointage';
 
 const sendEmail = async ({ to, toName, subject, html }) => {
