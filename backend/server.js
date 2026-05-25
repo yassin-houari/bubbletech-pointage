@@ -70,31 +70,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'API BubbleTech Pointage est opérationnelle',
-    timestamp: new Date().toISOString(),
-    env_vars: {
-      MAILERSEND_API_KEY: process.env.MAILERSEND_API_KEY ? 'SET (' + process.env.MAILERSEND_API_KEY.substring(0, 12) + '...)' : 'NOT SET',
-      MAILERSEND_FROM_EMAIL: process.env.MAILERSEND_FROM_EMAIL || 'NOT SET (using hardcoded fallback)',
-      FRONTEND_URL: process.env.FRONTEND_URL || 'NOT SET'
-    }
+    timestamp: new Date().toISOString()
   });
-});
-
-// Route de test email (temporaire - debug)
-app.get('/api/test-email', async (req, res) => {
-  try {
-    const emailService = require('./services/emailService');
-    const toEmail = req.query.to || 'abdessalemsaa@gmail.com';
-    const result = await emailService.sendWelcomeEmail(
-      { prenom: 'Test', nom: 'Employe', email: toEmail, code_secret: '1234' },
-      'TestPass123!'
-    );
-    res.json({
-      resend_key_set: !!process.env.RESEND_API_KEY,
-      email_result: result
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message, stack: err.stack });
-  }
 });
 
 // Gestion des routes non trouvées
