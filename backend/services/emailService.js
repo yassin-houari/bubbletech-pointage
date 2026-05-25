@@ -1,18 +1,33 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-// Initialisation défensive — ne pas crasher si la clé est absente
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-  console.warn('⚠️  RESEND_API_KEY non défini — emails désactivés');
-}
+// Brevo SMTP - pas de restriction IP contrairement à l'API Brevo
+const createTransporter = () => {
+  if (!process.env.BREVO_SMTP_LOGIN || !process.env.BREVO_SMTP_PASSWORD) {
+    return null;
+  }
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_SMTP_LOGIN,
+      pass: process.env.BREVO_SMTP_PASSWORD
+    }
+  });
+};
 
-const SENDER = process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev';
 const SENDER_NAME = 'BubbleTech Pointage';
+const SENDER_EMAIL = process.env.BREVO_SMTP_LOGIN || 'yassinhoua123@gmail.com';
 
 class EmailService {
   async sendWelcomeEmail(user, temporaryPassword) {
+    const transporter = createTransporter();
+
+    if (!transporter) {
+      console.warn('⚠️  BREVO_SMTP_LOGIN ou BREVO_SMTP_PASSWORD non défini — email désactivé');
+      return { success: false, error: 'SMTP non configuré' };
+    }
+
     const passwordSection = temporaryPassword
       ? `<p><strong>Mot de passe temporaire :</strong></p>
          <div class="code-box">${temporaryPassword}</div>
@@ -51,7 +66,6 @@ class EmailService {
           <div class="content">
             <p>Bonjour <strong>${user.prenom} ${user.nom}</strong>,</p>
             <p>Voici vos informations de connexion :</p>
-
             <div class="credentials">
               <div class="label">Adresse email</div>
               <div class="value">${user.email}</div>
@@ -63,7 +77,6 @@ class EmailService {
               <p style="font-size:13px;color:#6b7280;margin:4px 0 8px;">Pour pointer rapidement sans mot de passe</p>
               <div class="code-box">${user.code_secret}</div>
             </div>
-
             <div class="warning">
               <strong>⚠️ Important :</strong>
               <ul>
@@ -72,13 +85,11 @@ class EmailService {
                 <li>Contactez l'administrateur en cas de problème</li>
               </ul>
             </div>
-
             <p style="text-align:center;">
               <a href="${process.env.FRONTEND_URL || 'https://bubbletech-pointage-4kdx-one.vercel.app'}/login" class="button">
                 Se connecter →
               </a>
             </p>
-
             <p style="font-size:14px;color:#6b7280;">Si vous avez des questions, contactez votre administrateur.</p>
             <p>Cordialement,<br><strong>L'équipe BubbleTech</strong></p>
           </div>
@@ -90,33 +101,29 @@ class EmailService {
       </html>
     `;
 
-    if (!resend) {
-      console.warn('⚠️  Email non envoyé (RESEND_API_KEY manquant)');
-      return { success: false, error: 'RESEND_API_KEY non configuré' };
-    }
-
     try {
-      const { data, error } = await resend.emails.send({
-        from: `${SENDER_NAME} <${SENDER}>`,
-        to: [user.email],
+      const info = await transporter.sendMail({
+        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        to: user.email,
         subject: '🎉 Bienvenue sur BubbleTech Pointage — Vos identifiants',
         html
       });
-
-      if (error) {
-        console.error('❌ Erreur Resend envoi welcome à', user.email, ':', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('📧 Email welcome envoyé à:', user.email, '| id:', data.id);
-      return { success: true, messageId: data.id };
+      console.log('📧 Email welcome envoyé à:', user.email, '| id:', info.messageId);
+      return { success: true, messageId: info.messageId };
     } catch (err) {
-      console.error('❌ Exception Resend welcome à', user.email, ':', err.message);
+      console.error('❌ Erreur SMTP welcome à', user.email, ':', err.message);
       return { success: false, error: err.message };
     }
   }
 
   async sendPasswordResetEmail(user, newPassword) {
+    const transporter = createTransporter();
+
+    if (!transporter) {
+      console.warn('⚠️  SMTP non configuré — email reset non envoyé');
+      return { success: false, error: 'SMTP non configuré' };
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -155,28 +162,17 @@ class EmailService {
       </html>
     `;
 
-    if (!resend) {
-      console.warn('⚠️  Email reset non envoyé (RESEND_API_KEY manquant)');
-      return { success: false, error: 'RESEND_API_KEY non configuré' };
-    }
-
     try {
-      const { data, error } = await resend.emails.send({
-        from: `${SENDER_NAME} <${SENDER}>`,
-        to: [user.email],
+      const info = await transporter.sendMail({
+        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        to: user.email,
         subject: '🔐 Réinitialisation de votre mot de passe BubbleTech',
         html
       });
-
-      if (error) {
-        console.error('❌ Erreur Resend reset à', user.email, ':', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('📧 Email reset envoyé à:', user.email, '| id:', data.id);
-      return { success: true, messageId: data.id };
+      console.log('📧 Email reset envoyé à:', user.email, '| id:', info.messageId);
+      return { success: true, messageId: info.messageId };
     } catch (err) {
-      console.error('❌ Exception Resend reset à', user.email, ':', err.message);
+      console.error('❌ Erreur SMTP reset à', user.email, ':', err.message);
       return { success: false, error: err.message };
     }
   }
