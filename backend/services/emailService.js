@@ -1,8 +1,12 @@
 const nodemailer = require('nodemailer');
 
 // Brevo SMTP - pas de restriction IP contrairement à l'API Brevo
+const BREVO_LOGIN = process.env.BREVO_SMTP_LOGIN || 'yassinhoua123@gmail.com';
+const SENDER_NAME = 'BubbleTech Pointage';
+const SENDER_EMAIL = BREVO_LOGIN;
+
 const createTransporter = () => {
-  if (!process.env.BREVO_SMTP_LOGIN || !process.env.BREVO_SMTP_PASSWORD) {
+  if (!process.env.BREVO_SMTP_PASSWORD) {
     return null;
   }
   return nodemailer.createTransport({
@@ -10,21 +14,18 @@ const createTransporter = () => {
     port: 587,
     secure: false,
     auth: {
-      user: process.env.BREVO_SMTP_LOGIN,
+      user: BREVO_LOGIN,
       pass: process.env.BREVO_SMTP_PASSWORD
     }
   });
 };
-
-const SENDER_NAME = 'BubbleTech Pointage';
-const SENDER_EMAIL = process.env.BREVO_SMTP_LOGIN || 'yassinhoua123@gmail.com';
 
 class EmailService {
   async sendWelcomeEmail(user, temporaryPassword) {
     const transporter = createTransporter();
 
     if (!transporter) {
-      console.warn('⚠️  BREVO_SMTP_LOGIN ou BREVO_SMTP_PASSWORD non défini — email désactivé');
+      console.warn('⚠️  BREVO_SMTP_PASSWORD non défini — email désactivé');
       return { success: false, error: 'SMTP non configuré' };
     }
 
