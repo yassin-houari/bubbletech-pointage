@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
 // Brevo SMTP - pas de restriction IP contrairement à l'API Brevo
-const BREVO_LOGIN = process.env.BREVO_SMTP_LOGIN || 'yassinhoua123@gmail.com';
+const BREVO_LOGIN = process.env.BREVO_SMTP_LOGIN || 'a22c7b001@smtp-brevo.com';
 const SENDER_NAME = 'BubbleTech Pointage';
 const SENDER_EMAIL = BREVO_LOGIN;
 
