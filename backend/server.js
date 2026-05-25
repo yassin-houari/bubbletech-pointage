@@ -67,11 +67,31 @@ app.use('/api/notifications', notificationRoutes);
 
 // Route de test
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'API BubbleTech Pointage est opérationnelle',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    resend_key_set: !!process.env.RESEND_API_KEY,
+    resend_key_prefix: process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.substring(0, 8) + '...' : 'NOT SET'
   });
+});
+
+// Route de test email (temporaire - debug)
+app.get('/api/test-email', async (req, res) => {
+  try {
+    const emailService = require('./services/emailService');
+    const toEmail = req.query.to || 'abdessalemsaa@gmail.com';
+    const result = await emailService.sendWelcomeEmail(
+      { prenom: 'Test', nom: 'Employe', email: toEmail, code_secret: '1234' },
+      'TestPass123!'
+    );
+    res.json({
+      resend_key_set: !!process.env.RESEND_API_KEY,
+      email_result: result
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
 });
 
 // Gestion des routes non trouvées
