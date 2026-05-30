@@ -6,6 +6,8 @@ const { verifyToken } = require('../middleware/auth');
 // Routes publiques
 router.post('/login', authController.login);
 router.post('/request-password-reset', authController.requestPasswordReset);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPasswordWithCode);
 router.post('/pointage-direct', authController.loginWithCodeDirect);
 
 // Routes protégées

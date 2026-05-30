@@ -117,6 +117,61 @@ class EmailService {
     return result;
   }
 
+  async sendPasswordResetCode(user, code) {
+    const html = `<!DOCTYPE html>
+<html><head><style>
+  body{font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}
+  .container{max-width:600px;margin:0 auto;padding:20px}
+  .header{background:linear-gradient(135deg,#4F46E5,#0f766e);color:white;padding:30px 20px;text-align:center;border-radius:8px 8px 0 0}
+  .header h1{margin:0;font-size:22px}
+  .content{background:#f9f9f9;padding:30px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;border-top:none}
+  .code-box{background:linear-gradient(135deg,#eff6ff,#dbeafe);border:3px solid #4F46E5;padding:24px;text-align:center;font-size:42px;font-weight:bold;letter-spacing:12px;margin:20px 0;border-radius:12px;color:#1d4ed8;font-family:"Courier New",monospace}
+  .info{background:#f0fdf4;border-left:4px solid #22c55e;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;font-size:13px}
+  .warning{background:#FEF3C7;border-left:4px solid #F59E0B;padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0;font-size:13px}
+  .button{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#4F46E5,#0f766e);color:white!important;text-decoration:none;border-radius:6px;margin:16px 0;font-weight:600;font-size:15px}
+  .footer{text-align:center;margin-top:24px;color:#9ca3af;font-size:11px}
+  .expire{color:#dc2626;font-weight:bold}
+</style></head>
+<body><div class="container">
+  <div class="header">
+    <h1>🔐 Réinitialisation de mot de passe</h1>
+    <p style="margin:8px 0 0;opacity:0.9">BubbleTech Pointage</p>
+  </div>
+  <div class="content">
+    <p>Bonjour <strong>${user.prenom} ${user.nom}</strong>,</p>
+    <p>Vous avez demandé la réinitialisation de votre mot de passe. Voici votre code de vérification :</p>
+
+    <div class="code-box">${code}</div>
+
+    <div class="info">
+      ✅ Saisissez ce code sur la page de réinitialisation pour définir votre nouveau mot de passe.
+    </div>
+
+    <div class="warning">
+      ⏱️ Ce code est valable <span class="expire">15 minutes</span> uniquement.<br>
+      🚫 Si vous n'avez pas demandé cette réinitialisation, ignorez cet email — votre compte reste sécurisé.
+    </div>
+
+    <p style="text-align:center;">
+      <a href="${process.env.FRONTEND_URL || 'https://bubbletech-pointage-4kdx-one.vercel.app'}/forgot-password" class="button">Réinitialiser mon mot de passe →</a>
+    </p>
+
+    <p>Cordialement,<br><strong>L'équipe BubbleTech</strong></p>
+  </div>
+  <div class="footer"><p>Email automatique BubbleTech Pointage — merci de ne pas répondre à cet email.</p></div>
+</div></body></html>`;
+
+    const result = await sendEmail({
+      to: user.email,
+      toName: `${user.prenom} ${user.nom}`,
+      subject: '🔐 Votre code de réinitialisation BubbleTech — ' + code,
+      html
+    });
+
+    if (result.success) console.log('📧 Code OTP envoyé à:', user.email);
+    return result;
+  }
+
   async sendPasswordResetEmail(user, newPassword) {
     const html = `<!DOCTYPE html>
 <html><head><style>

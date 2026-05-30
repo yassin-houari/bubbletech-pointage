@@ -183,59 +183,168 @@ const loginWithCodeDirect = async (req, res) => {
   }
 };
 
-// Demande de réinitialisation de mot de passe
-const requestPasswordReset = async (req, res) => {
+// Créer la table des tokens de réinitialisation si elle n'existe pas
+const ensureResetTokensTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_user_id (user_id),
+      INDEX idx_code (code)
+    )
+  `);
+};
+
+// Générer un code OTP à 6 chiffres
+const generateOTPCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Étape 1 : Envoyer un code OTP par email
+const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email requis' 
-      });
+      return res.status(400).json({ success: false, message: 'Email requis' });
     }
 
-    // Rechercher l'utilisateur
+    await ensureResetTokensTable();
+
     const [users] = await pool.query(
-      'SELECT * FROM users WHERE email = ? AND actif = true',
+      'SELECT id, nom, prenom, email FROM users WHERE email = ? AND actif = true',
       [email]
     );
 
+    // Par sécurité : toujours retourner succès même si email inconnu
     if (users.length === 0) {
-      // Par sécurité, on retourne toujours un message de succès
       return res.json({
         success: true,
-        message: 'Si cet email existe, un nouveau mot de passe a été envoyé'
+        message: 'Si cet email est enregistré, vous recevrez un code dans quelques instants'
       });
     }
 
     const user = users[0];
+    const code = generateOTPCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Générer un nouveau mot de passe
-    const newPassword = generateRandomPassword();
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Mettre à jour le mot de passe et forcer le changement
+    // Invalider les anciens codes de cet utilisateur
     await pool.query(
-      'UPDATE users SET password = ?, doit_changer_mdp = true WHERE id = ?',
-      [hashedPassword, user.id]
+      'UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0',
+      [user.id]
     );
 
-    // Envoyer l'email via Brevo
-    await emailService.sendPasswordResetEmail(user, newPassword);
+    // Insérer le nouveau code
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, code, expires_at) VALUES (?, ?, ?)',
+      [user.id, code, expiresAt]
+    );
+
+    // Envoyer l'email avec le code
+    await emailService.sendPasswordResetCode(user, code);
+
+    console.log(`📧 Code OTP envoyé à ${email} (expire dans 15 min)`);
 
     res.json({
       success: true,
-      message: 'Un nouveau mot de passe a été envoyé par email'
+      message: 'Un code de vérification a été envoyé à votre adresse email'
     });
 
   } catch (error) {
-    console.error('Erreur lors de la réinitialisation:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erreur serveur lors de la réinitialisation' 
-    });
+    console.error('Erreur forgotPassword:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
+};
+
+// Étape 2 : Vérifier le code OTP et changer le mot de passe
+const resetPasswordWithCode = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, code et nouveau mot de passe requis'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 8 caractères'
+      });
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le code doit contenir exactement 6 chiffres'
+      });
+    }
+
+    await ensureResetTokensTable();
+
+    // Trouver l'utilisateur
+    const [users] = await pool.query(
+      'SELECT id, nom, prenom, email FROM users WHERE email = ? AND actif = true',
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({ success: false, message: 'Email invalide' });
+    }
+
+    const user = users[0];
+
+    // Vérifier le code OTP
+    const [tokens] = await pool.query(
+      `SELECT * FROM password_reset_tokens
+       WHERE user_id = ? AND code = ? AND used = 0 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [user.id, code]
+    );
+
+    if (tokens.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code invalide ou expiré. Veuillez recommencer.'
+      });
+    }
+
+    // Invalider le token utilisé
+    await pool.query(
+      'UPDATE password_reset_tokens SET used = 1 WHERE id = ?',
+      [tokens[0].id]
+    );
+
+    // Hasher et sauvegarder le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password = ?, doit_changer_mdp = false WHERE id = ?',
+      [hashedPassword, user.id]
+    );
+
+    console.log(`✅ Mot de passe réinitialisé pour ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès. Vous pouvez maintenant vous connecter.'
+    });
+
+  } catch (error) {
+    console.error('Erreur resetPasswordWithCode:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+};
+
+// Demande de réinitialisation de mot de passe (ancienne méthode - conservée pour compatibilité)
+const requestPasswordReset = async (req, res) => {
+  // Rediriger vers la nouvelle méthode OTP
+  return forgotPassword(req, res);
 };
 
 // Changer le mot de passe
@@ -415,6 +524,8 @@ module.exports = {
   loginWithCode,
   loginWithCodeDirect,
   requestPasswordReset,
+  forgotPassword,
+  resetPasswordWithCode,
   changePassword,
   changeSecretCode,
   getProfile,

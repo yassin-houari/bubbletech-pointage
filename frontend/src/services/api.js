@@ -53,8 +53,14 @@ export const authService = {
   loginWithCode: (code_secret) => 
     api.post('/auth/login-code', { code_secret }),
   
-  requestPasswordReset: (email) => 
+  requestPasswordReset: (email) =>
     api.post('/auth/request-password-reset', { email }),
+
+  forgotPassword: (email) =>
+    api.post('/auth/forgot-password', { email }),
+
+  resetPasswordWithCode: (email, code, newPassword) =>
+    api.post('/auth/reset-password', { email, code, newPassword }),
   
   changePassword: (oldPassword, newPassword) => 
     api.post('/auth/change-password', { oldPassword, newPassword }),
