@@ -535,35 +535,45 @@ const Personnel = () => {
               {/* Départements gérés — pour managers uniquement (multi-sélection) */}
               {isAdmin && editingUser.role === 'manager' && (
                 <div>
-                  <label>Départements gérés (peut gérer plusieurs)</label>
+                  <label>Départements gérés</label>
                   {departements.length === 0 ? (
                     <p style={{ color: '#6b7280', fontSize: 13 }}>Aucun département créé</p>
                   ) : (
                     <div style={{
-                      border: '1px solid #d1d5db', borderRadius: 6, padding: '8px 12px',
-                      maxHeight: 180, overflowY: 'auto', background: '#fff'
+                      display: 'flex', flexWrap: 'wrap', gap: '8px',
+                      border: '1px solid #d1d5db', borderRadius: 6,
+                      padding: '10px 12px', background: '#f9fafb'
                     }}>
-                      {departements.map(d => (
-                        <label key={d.id} style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '4px 0', cursor: 'pointer', fontSize: 14
-                        }}>
-                          <input
-                            type="checkbox"
-                            checked={managerDeptIds.includes(d.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setManagerDeptIds(prev => [...prev, d.id]);
-                              else setManagerDeptIds(prev => prev.filter(id => id !== d.id));
-                            }}
-                          />
-                          {d.nom}
-                        </label>
-                      ))}
+                      {departements.map(d => {
+                        const selected = managerDeptIds.includes(d.id);
+                        return (
+                          <label key={d.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+                            fontSize: 13, fontWeight: 500, userSelect: 'none',
+                            border: `1.5px solid ${selected ? '#4F46E5' : '#d1d5db'}`,
+                            background: selected ? '#ede9fe' : '#fff',
+                            color: selected ? '#4F46E5' : '#374151',
+                            transition: 'all 0.15s'
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={(e) => {
+                                if (e.target.checked) setManagerDeptIds(prev => [...prev, d.id]);
+                                else setManagerDeptIds(prev => prev.filter(id => id !== d.id));
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                            {selected ? '✓ ' : ''}{d.nom}
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                   {managerDeptIds.length > 0 && (
                     <p style={{ fontSize: 12, color: '#4F46E5', margin: '4px 0 0' }}>
-                      ✅ {managerDeptIds.length} département(s) sélectionné(s)
+                      {managerDeptIds.length} département(s) sélectionné(s)
                     </p>
                   )}
                 </div>
