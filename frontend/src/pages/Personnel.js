@@ -551,18 +551,18 @@ const Personnel = () => {
                   />
                 </div>
               )}
-              {/* Département géré — pour managers (1 seul département) */}
+              {/* Département géré — manager gère 1 seul département */}
               {isAdmin && editingUser.role === 'manager' && (
                 <div>
                   <label>Département géré</label>
                   <select
-                    value={managerDeptIds[0] || ''}
+                    value={managerDeptIds[0] ? String(managerDeptIds[0]) : ''}
                     onChange={(e) => setManagerDeptIds(e.target.value ? [Number(e.target.value)] : [])}
                     disabled={loadingLookups}
                   >
-                    <option value="">— Aucun département —</option>
+                    <option value="">— Choisir un département —</option>
                     {departements.map(d => (
-                      <option key={d.id} value={d.id}>{d.nom}</option>
+                      <option key={d.id} value={String(d.id)}>{d.nom}</option>
                     ))}
                   </select>
                 </div>
