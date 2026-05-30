@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
 import { FiClock, FiLogIn, FiLogOut, FiCheckCircle, FiCoffee } from 'react-icons/fi';
 import '../styles/Pointage.css';
 
 const Pointage = () => {
+  const navigate = useNavigate();
   const { loginWithCode, pointageDirectLogin, user, isAuthenticated } = useAuth();
   const [code, setCode] = useState('');
   const [isVerified, setIsVerified] = useState(false);
@@ -77,6 +78,17 @@ const Pointage = () => {
     return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}m`;
   };
 
+  // Après chaque action : dashboard si connecté par email, sinon retour PIN
+  const afterAction = () => {
+    setTimeout(() => {
+      if (isAuthenticated) {
+        navigate('/dashboard');
+      } else {
+        resetForm();
+      }
+    }, 2500);
+  };
+
   const handleCheckIn = async () => {
     setLoading(true);
     try {
@@ -85,7 +97,7 @@ const Pointage = () => {
         const checkinAt = new Date(response.data.pointage.checkin_at);
         const timeStr = checkinAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setMessage({ type: 'success', text: `✅ Check-in enregistré à ${timeStr}` });
-        setTimeout(() => resetForm(), 3000);
+        afterAction();
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-in' });
@@ -105,7 +117,7 @@ const Pointage = () => {
           type: 'success',
           text: `✅ Check-out — ${heures}h${String(mins).padStart(2, '0')}min travaillées`
         });
-        setTimeout(() => resetForm(), 3000);
+        afterAction();
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-out' });
@@ -119,7 +131,7 @@ const Pointage = () => {
       const response = await pointageService.startPause();
       if (response.data.success) {
         setMessage({ type: 'success', text: '✅ Pause démarrée' });
-        setTimeout(() => resetForm(), 3000);
+        afterAction();
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du démarrage de la pause' });
@@ -134,7 +146,7 @@ const Pointage = () => {
       if (response.data.success) {
         const mins = parseInt(response.data.pause.duree_minutes || 0);
         setMessage({ type: 'success', text: `✅ Pause terminée — ${fmtMins(mins)}` });
-        setTimeout(() => resetForm(), 3000);
+        afterAction();
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors de la fin de la pause' });
