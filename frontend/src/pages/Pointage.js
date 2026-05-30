@@ -85,7 +85,7 @@ const Pointage = () => {
         const checkinAt = new Date(response.data.pointage.checkin_at);
         const timeStr = checkinAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setMessage({ type: 'success', text: `✅ Check-in enregistré à ${timeStr}` });
-        if (activeUser?.id) loadSessions(activeUser.id); // rester sur la page, recharger les sessions
+        setTimeout(() => resetForm(), 3000);
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-in' });
@@ -105,7 +105,7 @@ const Pointage = () => {
           type: 'success',
           text: `✅ Check-out — ${heures}h${String(mins).padStart(2, '0')}min travaillées`
         });
-        if (activeUser?.id) loadSessions(activeUser.id);
+        setTimeout(() => resetForm(), 3000);
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-out' });
@@ -118,8 +118,8 @@ const Pointage = () => {
     try {
       const response = await pointageService.startPause();
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Pause démarrée' });
-        if (activeUser?.id) loadSessions(activeUser.id);
+        setMessage({ type: 'success', text: '✅ Pause démarrée' });
+        setTimeout(() => resetForm(), 3000);
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du démarrage de la pause' });
@@ -132,9 +132,9 @@ const Pointage = () => {
     try {
       const response = await pointageService.endPause();
       if (response.data.success) {
-        const mins = response.data.pause.duree_minutes;
-        setMessage({ type: 'success', text: `Pause terminée — durée : ${Math.floor(mins/60)}h${mins%60}min` });
-        if (activeUser?.id) loadSessions(activeUser.id);
+        const mins = parseInt(response.data.pause.duree_minutes || 0);
+        setMessage({ type: 'success', text: `✅ Pause terminée — ${fmtMins(mins)}` });
+        setTimeout(() => resetForm(), 3000);
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors de la fin de la pause' });
