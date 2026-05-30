@@ -901,8 +901,8 @@ const getAssignableUsersForManager = async (req, res) => {
       return res.json({ success: true, count: 0, users: [] });
     }
 
-    // Seuls les employés sans département peuvent être ajoutés à une équipe
-    // (un employé appartient à un seul département à la fois)
+    // Seuls les employés sans manager peuvent être ajoutés :
+    // - pas de département, OU département sans manager assigné
     const [users] = await pool.query(
       `SELECT u.id, u.nom, u.prenom, u.email, u.role,
               p.poste_id, po.nom AS poste_nom
@@ -912,7 +912,12 @@ const getAssignableUsersForManager = async (req, res) => {
        WHERE u.actif = 1
          AND u.id != ?
          AND u.role IN ('personnel', 'stagiaire')
-         AND u.departement_id IS NULL
+         AND (
+           u.departement_id IS NULL
+           OR u.departement_id NOT IN (
+             SELECT id FROM departements WHERE manager_id IS NOT NULL
+           )
+         )
        ORDER BY u.nom, u.prenom`,
       [managerId]
     );
