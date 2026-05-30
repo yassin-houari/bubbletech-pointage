@@ -1,83 +1,127 @@
-# 🕐 BubbleTech Pointage
+# BubbleTech Pointage
 
-Application web de gestion du temps et de présence pour l'ASBL BubbleTech.
+Système web complet de gestion des présences et du temps de travail.
 
-## 📋 Description
+## Description
 
-BubbleTech Pointage est une plateforme complète permettant :
+BubbleTech Pointage est une application full-stack permettant aux entreprises de gérer les présences de leurs employés en temps réel.
 
-- ✅ Check-in/Check-out avec code PIN à 4 chiffres
-- 👥 Gestion du personnel et des stagiaires
-- 📊 Statistiques et rapports de présence
-- 🔔 Notifications par email (Brevo)
-- 🔐 Authentification sécurisée avec JWT
-- 📱 Interface responsive (desktop et mobile)
+### Fonctionnalités principales
 
-## 🏗️ Architecture
+- Check-in / Check-out via code PIN à 4 chiffres
+- Gestion des pauses avec calcul automatique du temps effectif
+- Tableau de bord administrateur avec statistiques en temps réel
+- Gestion du personnel : employés, stagiaires, managers
+- Gestion des départements et des postes
+- Système de réinitialisation de mot de passe par code OTP (6 chiffres)
+- Envoi automatique d'emails de bienvenue lors de la création de compte
+- Authentification sécurisée JWT double facteur (email/mot de passe + code PIN)
+- Gestion des rôles : Admin, Manager, Personnel, Stagiaire
+- Checkout automatique après 10h de travail
+- Logs d'audit complets
 
-**Client-Server Architecture**
+---
 
-- **Frontend**: React 18 + React Router + Axios
-- **Backend**: Node.js + Express.js
-- **Base de données**: MySQL
-- **Service de notification**: Brevo (anciennement Sendinblue)
+## Architecture
 
 ```
-┌─────────────┐      API REST      ┌─────────────┐      ┌──────────┐
-│   React     │ ◄─────────────────► │  Express.js │ ◄───► │  MySQL   │
-│  Frontend   │      (JSON)         │   Backend   │       │ Database │
-└─────────────┘                     └─────────────┘      └──────────┘
-                                           │
-                                           ▼
-                                    ┌─────────────┐
-                                    │    Brevo    │
-                                    │  (Emails)   │
-                                    └─────────────┘
+┌─────────────────────┐        API REST / HTTPS        ┌─────────────────────┐
+│   React.js          │ ◄────────────────────────────► │   Node.js           │
+│   Frontend          │         JSON                    │   Express.js        │
+│   Vercel CDN        │                                 │   Vercel Serverless │
+└─────────────────────┘                                 └──────────┬──────────┘
+                                                                   │
+                                                    ┌──────────────┼──────────────┐
+                                                    │              │              │
+                                             ┌──────▼──────┐ ┌────▼────┐  ┌─────▼─────┐
+                                             │   MySQL     │ │Mailjet  │  │   JWT     │
+                                             │  Railway    │ │ Emails  │  │   Auth    │
+                                             └─────────────┘ └─────────┘  └───────────┘
 ```
 
-## 📦 Structure du projet
+**Stack technique :**
+
+| Couche | Technologie | Hébergement |
+|---|---|---|
+| Frontend | React.js 18, React Router, Axios | Vercel |
+| Backend | Node.js, Express.js | Vercel Serverless |
+| Base de données | MySQL 8 | Railway |
+| Emails | Mailjet API | Cloud |
+| Auth | JWT + bcrypt | — |
+
+---
+
+## Structure du projet
 
 ```
 bubbletech-pointage/
-├── backend/                 # Serveur Node.js/Express
-│   ├── config/             # Configuration (DB, etc.)
-│   ├── controllers/        # Logique métier
-│   ├── middleware/         # Middlewares (auth, logs)
-│   ├── routes/             # Routes API
-│   ├── scripts/            # Scripts utilitaires
-│   ├── services/           # Services (Brevo, etc.)
-│   ├── .env.example        # Variables d'environnement
-│   ├── package.json        # Dépendances backend
-│   └── server.js           # Point d'entrée
+├── backend/
+│   ├── api/
+│   │   └── index.js              # Point d'entrée Vercel serverless
+│   ├── config/
+│   │   └── database.js           # Pool de connexions MySQL
+│   ├── controllers/
+│   │   ├── authController.js     # Login, OTP, changement MDP
+│   │   ├── userController.js     # CRUD utilisateurs + équipes manager
+│   │   ├── pointageController.js # Check-in/out, pauses, stats
+│   │   ├── departementController.js
+│   │   ├── posteController.js
+│   │   └── notificationController.js
+│   ├── middleware/
+│   │   ├── auth.js               # Vérification JWT + rôles
+│   │   └── logger.js             # Logs d'audit automatiques
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── users.js
+│   │   ├── pointages.js
+│   │   ├── departements.js
+│   │   ├── postes.js
+│   │   └── notifications.js
+│   ├── scripts/
+│   │   ├── initDatabase.js       # Initialisation de la base
+│   │   └── migrate.js            # Script de migration
+│   ├── services/
+│   │   └── emailService.js       # Envoi d'emails via Mailjet
+│   ├── server.js                 # Application Express
+│   ├── vercel.json               # Configuration Vercel backend
+│   └── package.json
 │
-├── frontend/               # Application React
-│   ├── public/            # Fichiers statiques
-│   ├── src/
-│   │   ├── components/    # Composants réutilisables
-│   │   ├── contexts/      # Contexts React (Auth)
-│   │   ├── pages/         # Pages de l'application
-│   │   ├── services/      # Services API
-│   │   ├── styles/        # Fichiers CSS
-│   │   ├── App.js         # Composant principal
-│   │   └── index.js       # Point d'entrée
-│   ├── .env               # Variables d'environnement
-│   └── package.json       # Dépendances frontend
+├── frontend/
+│   └── src/
+│       ├── components/
+│       │   ├── Navbar.js
+│       │   └── ProtectedRoute.js
+│       ├── contexts/
+│       │   └── AuthContext.js    # État global d'authentification
+│       ├── pages/
+│       │   ├── Login.js
+│       │   ├── ForgotPassword.js # Réinitialisation MDP par OTP
+│       │   ├── ChangePassword.js
+│       │   ├── Dashboard.js      # Tableau de bord + stats
+│       │   ├── Pointage.js       # Kiosque de pointage PIN
+│       │   ├── Personnel.js      # Gestion du personnel
+│       │   └── Profile.js
+│       ├── services/
+│       │   └── api.js            # Appels API centralisés (Axios)
+│       └── styles/
 │
-└── README.md              # Ce fichier
+└── README.md
 ```
 
-## 🚀 Installation
+---
+
+## Installation locale
 
 ### Prérequis
 
-- Node.js (v16 ou supérieur)
-- MySQL (v8 ou supérieur)
-- Compte Brevo (pour les emails)
+- Node.js v18+
+- MySQL v8+
+- Compte Mailjet (gratuit)
 
 ### 1. Cloner le projet
 
 ```bash
-git clone <url-du-repo>
+git clone https://github.com/yassin-houari/bubbletech-pointage.git
 cd bubbletech-pointage
 ```
 
@@ -88,7 +132,7 @@ cd backend
 npm install
 ```
 
-Copier `.env.example` vers `.env` et configurer :
+Créer le fichier `.env` :
 
 ```env
 # Base de données
@@ -96,232 +140,264 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=votre_mot_de_passe
 DB_NAME=bubbletech_pointage
+DB_PORT=3306
 
 # JWT
 JWT_SECRET=votre_secret_jwt_tres_long_et_securise
+JWT_EXPIRE=24h
 
-# Brevo
-BREVO_API_KEY=cle_api_brevo
-BREVO_SENDER_EMAIL=email_@bubbletech.be
+# Mailjet (emails)
+MAILJET_API_KEY=votre_cle_api
+MAILJET_API_SECRET=votre_cle_secrete
+MAILJET_FROM_EMAIL=votre@email.com
+
+# App
+FRONTEND_URL=http://localhost:3000
+NODE_ENV=development
+PORT=5000
 ```
 
 Initialiser la base de données :
 
 ```bash
-npm run init-db
+node scripts/initDatabase.js
 ```
 
 Démarrer le serveur :
 
 ```bash
 npm run dev
+# Serveur sur http://localhost:5000
 ```
-
-Le serveur démarre sur `http://localhost:5000`
 
 ### 3. Configuration Frontend
 
 ```bash
 cd frontend
 npm install
-npm start
 ```
 
-L'application démarre sur `http://localhost:3000`
+Créer `.env` :
 
-## 🗄️ Base de données
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+```
 
-### Schéma relationnel
+Démarrer :
 
-La base de données est normalisée en 3ème forme normale (3NF) :
+```bash
+npm start
+# Application sur http://localhost:3000
+```
 
-**Tables principales:**
+---
 
-- `users` - Table mère pour tous les utilisateurs
-- `departements` - Départements de l'entreprise
-- `postes` - Postes par département
-- `personnel` - Données spécifiques aux employés
-- `stagiaires` - Données spécifiques aux stagiaires
-- `managers` - Managers et leurs spécialités
-- `pointages` - Enregistrements de présence
-- `notifications` - Notifications système
-- `logs` - Audit trail
+## Base de données
 
-## 🔐 Authentification & Sécurité
+### Tables (11 tables)
 
-### Méthodes d'authentification
+| Table | Description |
+|---|---|
+| `users` | Table centrale — tous les utilisateurs (admin, manager, personnel, stagiaire) |
+| `departements` | Départements de l'entreprise |
+| `managers` | Extension de users pour le rôle manager |
+| `postes` | Postes de travail par département |
+| `personnel` | Extension de users pour les employés permanents |
+| `stagiaires` | Extension de users pour les stagiaires |
+| `pointages` | Sessions de travail (check-in / check-out) |
+| `pauses` | Pauses liées à une session de pointage |
+| `notifications` | Notifications en application |
+| `logs` | Audit trail de toutes les actions |
+| `password_reset_tokens` | Codes OTP de réinitialisation de mot de passe |
 
-1. **Login classique** : Email + Mot de passe → JWT token
-2. **Login rapide** : Code PIN 4 chiffres (pour pointage uniquement)
+### Relations clés
 
-### Sécurité
+```
+users          ──── departements       (N users → 1 département)
+departements   ──── managers           (1 département → 0..1 manager)
+managers       ──── users              (1:1 — un manager est un user)
+personnel      ──── users + postes     (1:1 user, N:1 poste)
+stagiaires     ──── users              (1:1 + encadrant optionnel)
+pointages      ──── users              (N pointages → 1 user)
+pauses         ──── pointages          (N pauses → 1 pointage)
+```
 
-- ✅ Mots de passe hashés (bcrypt)
-- ✅ Tokens JWT avec expiration
-- ✅ Rate limiting sur les endpoints sensibles
-- ✅ Validation des entrées
-- ✅ Protection CORS
-- ✅ Helmet.js pour headers sécurisés
-- ✅ Logs d'audit complets
+### Migration sur base existante
 
-## 📡 API Endpoints
+```bash
+cd backend
+node scripts/migrate.js
+```
+
+---
+
+## API Endpoints
 
 ### Authentification
 
 ```
-POST   /api/auth/login                  # Connexion email/password
-POST   /api/auth/login-code             # Connexion code PIN
-POST   /api/auth/request-password-reset # Demande réinitialisation
-POST   /api/auth/change-password        # Changement de mot de passe
-GET    /api/auth/profile                # Profil utilisateur
+POST   /api/auth/login                   Connexion email + mot de passe
+POST   /api/auth/pointage-direct         Connexion par code PIN (kiosque)
+POST   /api/auth/login-code              Vérification PIN (utilisateur connecté)
+POST   /api/auth/forgot-password         Demande code OTP par email
+POST   /api/auth/reset-password          Réinitialisation avec code OTP
+PUT    /api/auth/change-password         Changement de mot de passe
+POST   /api/auth/change-secret-code      Changement de code PIN
+GET    /api/auth/profile                 Profil de l'utilisateur connecté
 ```
 
-### Utilisateurs (Admin/Manager uniquement)
+### Utilisateurs
 
 ```
-GET    /api/users           # Liste des utilisateurs
-GET    /api/users/:id       # Détails utilisateur
-POST   /api/users           # Créer utilisateur (Admin)
-PUT    /api/users/:id       # Modifier utilisateur
-DELETE /api/users/:id       # Supprimer utilisateur (Admin)
+GET    /api/users                        Liste des utilisateurs
+GET    /api/users/:id                    Détail d'un utilisateur
+POST   /api/users                        Créer un utilisateur (Admin)
+PUT    /api/users/:id                    Modifier un utilisateur
+DELETE /api/users/:id                    Supprimer un utilisateur (Admin)
+GET    /api/users/manager/team-members   Équipe du manager connecté
+GET    /api/users/manager/assignable     Employés sans manager assignable
+POST   /api/users/manager/team-members   Ajouter un membre à l'équipe
+DELETE /api/users/manager/team-members/:id  Retirer un membre
 ```
 
 ### Pointages
 
 ```
-POST   /api/pointages/checkin      # Check-in
-POST   /api/pointages/checkout     # Check-out
-GET    /api/pointages              # Liste pointages (filtrable)
-GET    /api/pointages/stats        # Statistiques
+POST   /api/pointages/checkin            Enregistrer l'arrivée
+POST   /api/pointages/checkout           Enregistrer le départ
+POST   /api/pointages/pause/start        Démarrer une pause
+POST   /api/pointages/pause/end          Terminer une pause
+GET    /api/pointages                    Historique des pointages
+GET    /api/pointages/stats              Statistiques de présence
 ```
 
-## 👥 Rôles et permissions
+### Structures
 
-| Rôle      | Connexion | Pointage | Voir son profil | Voir équipe | Gérer personnel |
-| --------- | --------- | -------- | --------------- | ----------- | --------------- |
-| Admin     | ✅        | ✅       | ✅              | ✅ (tous)   | ✅              |
-| Manager   | ✅        | ✅       | ✅              | ✅ (équipe) | ✅ (équipe)     |
-| Personnel | ✅        | ✅       | ✅              | ❌          | ❌              |
-| Stagiaire | ✅        | ✅       | ✅              | ❌          | ❌              |
+```
+GET    /api/departements                 Liste des départements
+POST   /api/departements                 Créer un département (Admin)
+GET    /api/postes                       Liste des postes
+POST   /api/postes                       Créer un poste (Admin)
+```
 
-## 📧 Notifications Email (Brevo)
+### Santé
 
-L'application envoie automatiquement des emails via Brevo pour :
+```
+GET    /api/health                       Statut de l'API
+```
 
-1. **Email de bienvenue** - Envoyé lors de la création d'un compte
-   - Mot de passe temporaire
+---
+
+## Rôles et permissions
+
+| Action | Admin | Manager | Personnel | Stagiaire |
+|---|---|---|---|---|
+| Connexion email/MDP | ✅ | ✅ | ✅ | ✅ |
+| Connexion PIN | ✅ | ✅ | ✅ | ✅ |
+| Check-in / Check-out | ✅ | ✅ | ✅ | ✅ |
+| Gérer les pauses | ✅ | ✅ | ✅ | ✅ |
+| Voir son historique | ✅ | ✅ | ✅ | ✅ |
+| Voir l'équipe | ✅ (tous) | ✅ (son équipe) | ❌ | ❌ |
+| Créer des employés | ✅ | ❌ | ❌ | ❌ |
+| Gérer les départements | ✅ | ❌ | ❌ | ❌ |
+| Voir les statistiques | ✅ | ✅ (équipe) | ✅ (perso) | ✅ (perso) |
+
+---
+
+## Sécurité
+
+- **Mots de passe** : hachés avec bcrypt (10 rounds)
+- **Tokens JWT** : expiration 24h, signés avec secret
+- **Rate limiting** : 100 req/15min global, 5 tentatives/15min pour le login
+- **CORS** : origines contrôlées
+- **Helmet.js** : headers HTTP sécurisés
+- **Trust proxy** : configuré pour Vercel
+- **OTP** : codes à 6 chiffres, expiration 15 minutes, usage unique
+
+---
+
+## Déploiement (Production)
+
+### Variables d'environnement Vercel (Backend)
+
+| Variable | Description |
+|---|---|
+| `DB_HOST` | Hôte MySQL Railway |
+| `DB_USER` | Utilisateur MySQL |
+| `DB_PASSWORD` | Mot de passe MySQL |
+| `DB_NAME` | Nom de la base |
+| `DB_PORT` | Port MySQL |
+| `JWT_SECRET` | Clé secrète JWT |
+| `JWT_EXPIRE` | Durée token (ex: 24h) |
+| `MAILJET_API_KEY` | Clé API Mailjet |
+| `MAILJET_API_SECRET` | Clé secrète Mailjet |
+| `MAILJET_FROM_EMAIL` | Email expéditeur |
+| `FRONTEND_URL` | URL du frontend |
+| `NODE_ENV` | production |
+
+### URLs de production
+
+| Service | URL |
+|---|---|
+| Frontend | https://bubbletech-pointage-4kdx-one.vercel.app |
+| Backend API | https://bubbletech-pointage.vercel.app/api |
+| Health check | https://bubbletech-pointage.vercel.app/api/health |
+
+---
+
+## Emails (Mailjet)
+
+L'application envoie automatiquement des emails via Mailjet pour :
+
+1. **Email de bienvenue** — à la création d'un compte
+   - Identifiants de connexion (email + mot de passe temporaire)
    - Code PIN de pointage
    - Lien de connexion
 
-2. **Réinitialisation de mot de passe**
-   - Nouveau mot de passe temporaire
-   - Obligation de le changer à la connexion
+2. **Code OTP de réinitialisation** — mot de passe oublié
+   - Code à 6 chiffres valable 15 minutes
+   - Usage unique — invalidé après utilisation
 
-3. **Alertes d'absence** (optionnel)
-   - Notification si aucun pointage détecté
+> **Note :** Si les emails arrivent en spam, demander à l'employé de les marquer comme "Pas du spam". Pour une livraison optimale, vérifier le domaine expéditeur dans le dashboard Mailjet.
 
-4. **Alertes administrateur**
-   - Synthèse quotidienne des utilisateurs sans pointage
-   - Envoi d'un récapitulatif aux administrateurs actifs
+---
 
-### Déclenchement des notifications quotidiennes
-
-Endpoint admin pour envoyer les rappels + alertes:
-
-```bash
-POST /api/notifications/daily-reminders
-Authorization: Bearer <token_admin>
-Content-Type: application/json
-
-{
-  "date": "2026-03-03"  // optionnel, défaut = aujourd'hui
-}
-```
-
-### Configuration Brevo
-
-1. Créer un compte sur [Brevo](https://www.brevo.com)
-2. Générer une clé API
-3. Configurer l'email expéditeur vérifié
-4. Ajouter la clé dans `.env`
-
-## 🧪 Tests
-
-### Test manuel de l'API
+## Tests manuels
 
 ```bash
 # Health check
-curl http://localhost:5000/api/health
+curl https://bubbletech-pointage.vercel.app/api/health
 
 # Login
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST https://bubbletech-pointage.vercel.app/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@bubbletech.be","password":"password123"}'
 
 # Check-in (avec token)
-curl -X POST http://localhost:5000/api/pointages/checkin \
-  -H "Authorization: Bearer VOTRE_TOKEN" \
-  -H "Content-Type: application/json"
+curl -X POST https://bubbletech-pointage.vercel.app/api/pointages/checkin \
+  -H "Authorization: Bearer VOTRE_TOKEN"
 ```
-
-## 🔧 Maintenance
-
-### Créer un administrateur
-
-```sql
--- Dans MySQL
-INSERT INTO users (nom, prenom, email, password, role, code_secret, actif)
-VALUES (
-  'Admin',
-  'Super',
-  'admin@bubbletech.be',
-  '$2a$10$...', -- Hash bcrypt du mot de passe
-  'admin',
-  '0000',
-  true
-);
-```
-
-Ou utiliser le endpoint POST /api/users avec un compte admin existant.
-
-## 📝 TODO / Améliorations futures
-
-- [ ] Export Excel des pointages
-- [ ] Graphiques de statistiques
-- [ ] Application mobile native
-- [ ] Reconnaissance faciale
-- [ ] Géolocalisation du pointage
-- [ ] Notifications push
-- [ ] Multi-langue (FR/NL/EN)
-
-## 👨‍💻 Développement
-
-### Conventions de code
-
-- **Backend** : ESLint avec config standard
-- **Frontend** : ESLint avec config React
-- Indentation : 2 espaces
-- Noms de variables : camelCase
-- Noms de fichiers : PascalCase pour composants React
-
-### Git workflow
-
-```bash
-git checkout -b feature/nouvelle-fonctionnalite
-# Développement...
-git commit -m "feat: description de la fonctionnalité"
-git push origin feature/nouvelle-fonctionnalite
-# Pull Request
-```
-
-## 📄 Licence
-
-Propriété de BubbleTech ASBL. Tous droits réservés.
-
-## 📞 Support
-
-Pour toute question : yassinhoua123@gmail.com
 
 ---
 
-**Développé avec ❤️ pour BubbleTech par Yassin Houari**
+## Perspectives d'évolution
+
+- [ ] Export Excel / PDF des pointages
+- [ ] Application mobile (React Native)
+- [ ] Pointage par QR Code
+- [ ] Pointage biométrique
+- [ ] Gestion des congés et absences
+- [ ] Notifications WebSocket en temps réel
+- [ ] Tableau de bord analytique avancé
+- [ ] Support multi-entreprise (SaaS)
+
+---
+
+## Développé par
+
+**Yassin Houari** — Projet de Fin d'Études  
+Contact : yassinhoua123@gmail.com
+
+---
+
+*BubbleTech Pointage — Tous droits réservés © 2025*
