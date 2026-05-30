@@ -1,46 +1,50 @@
 const axios = require('axios');
 
-const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY;
-const _fromRaw = process.env.MAILERSEND_FROM_EMAIL || 'test-y7zpl98rkzr45vx6.mlsender.net';
-const FROM_EMAIL = _fromRaw.includes('@') ? _fromRaw : `noreply@${_fromRaw}`;
-const SENDER_NAME = 'BubbleTech Pointage';
+const MAILJET_API_KEY    = process.env.MAILJET_API_KEY;
+const MAILJET_API_SECRET = process.env.MAILJET_API_SECRET;
+const FROM_EMAIL         = process.env.MAILJET_FROM_EMAIL || 'yassinhoua123@gmail.com';
+const SENDER_NAME        = 'BubbleTech Pointage';
 
-// Envoyer un email via Mailersend avec retry automatique
+// Envoyer un email via Mailjet avec retry automatique
 const sendEmail = async ({ to, toName, subject, html }, retries = 2) => {
-  if (!MAILERSEND_API_KEY) {
-    console.warn('⚠️  MAILERSEND_API_KEY non défini');
-    return { success: false, error: 'MAILERSEND_API_KEY non configuré' };
+  if (!MAILJET_API_KEY || !MAILJET_API_SECRET) {
+    console.warn('⚠️  MAILJET_API_KEY ou MAILJET_API_SECRET non défini');
+    return { success: false, error: 'Mailjet non configuré' };
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await axios.post(
-        'https://api.mailersend.com/v1/email',
+        'https://api.mailjet.com/v3.1/send',
         {
-          from: { email: FROM_EMAIL, name: SENDER_NAME },
-          to: [{ email: to, name: toName || to }],
-          subject,
-          html
+          Messages: [
+            {
+              From:    { Email: FROM_EMAIL, Name: SENDER_NAME },
+              To:      [{ Email: to, Name: toName || to }],
+              Subject: subject,
+              HTMLPart: html
+            }
+          ]
         },
         {
-          headers: {
-            Authorization: `Bearer ${MAILERSEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 8000 // 8 secondes max (Vercel timeout = 10s)
+          auth:    { username: MAILJET_API_KEY, password: MAILJET_API_SECRET },
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 8000
         }
       );
-      return { success: true, messageId: response.headers['x-message-id'] || 'sent' };
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message;
-      console.error(`❌ Mailersend tentative ${attempt}/${retries}:`, errMsg, err.response?.data || '');
 
-      if (attempt === retries) {
-        return { success: false, error: errMsg };
+      const status = response.data?.Messages?.[0]?.Status;
+      if (status === 'success') {
+        return { success: true, messageId: response.data.Messages[0].To[0].MessageID };
       }
+      throw new Error(`Mailjet status: ${status}`);
 
-      // Attendre 1 seconde avant de réessayer
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (err) {
+      const errMsg = err.response?.data?.ErrorMessage || err.message;
+      console.error(`❌ Mailjet tentative ${attempt}/${retries}:`, errMsg);
+
+      if (attempt === retries) return { success: false, error: errMsg };
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 };
@@ -139,32 +143,25 @@ class EmailService {
   </div>
   <div class="content">
     <p>Bonjour <strong>${user.prenom} ${user.nom}</strong>,</p>
-    <p>Vous avez demandé la réinitialisation de votre mot de passe. Voici votre code de vérification :</p>
-
+    <p>Voici votre code de vérification :</p>
     <div class="code-box">${code}</div>
-
-    <div class="info">
-      ✅ Saisissez ce code sur la page de réinitialisation pour définir votre nouveau mot de passe.
-    </div>
-
+    <div class="info">✅ Saisissez ce code sur la page de réinitialisation pour définir votre nouveau mot de passe.</div>
     <div class="warning">
       ⏱️ Ce code est valable <span class="expire">15 minutes</span> uniquement.<br>
-      🚫 Si vous n'avez pas demandé cette réinitialisation, ignorez cet email — votre compte reste sécurisé.
+      🚫 Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
     </div>
-
     <p style="text-align:center;">
       <a href="${process.env.FRONTEND_URL || 'https://bubbletech-pointage-4kdx-one.vercel.app'}/forgot-password" class="button">Réinitialiser mon mot de passe →</a>
     </p>
-
     <p>Cordialement,<br><strong>L'équipe BubbleTech</strong></p>
   </div>
-  <div class="footer"><p>Email automatique BubbleTech Pointage — merci de ne pas répondre à cet email.</p></div>
+  <div class="footer"><p>Email automatique BubbleTech Pointage — merci de ne pas répondre.</p></div>
 </div></body></html>`;
 
     const result = await sendEmail({
       to: user.email,
       toName: `${user.prenom} ${user.nom}`,
-      subject: '🔐 Votre code de réinitialisation BubbleTech — ' + code,
+      subject: `🔐 Votre code de réinitialisation BubbleTech : ${code}`,
       html
     });
 
@@ -173,42 +170,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(user, newPassword) {
-    const html = `<!DOCTYPE html>
-<html><head><style>
-  body{font-family:Arial,sans-serif;line-height:1.6;color:#333}
-  .container{max-width:600px;margin:0 auto;padding:20px}
-  .header{background:#DC2626;color:white;padding:20px;text-align:center;border-radius:8px 8px 0 0}
-  .content{background:#f9f9f9;padding:30px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;border-top:none}
-  .code-box{background:#fee2e2;border:2px solid #DC2626;padding:16px;text-align:center;font-size:22px;font-weight:bold;letter-spacing:4px;margin:12px 0;border-radius:8px;color:#DC2626}
-  .warning{background:#FEF3C7;border-left:4px solid #F59E0B;padding:15px;margin:20px 0}
-  .button{display:inline-block;padding:12px 32px;background:#DC2626;color:white!important;text-decoration:none;border-radius:6px;margin:16px 0;font-weight:600}
-</style></head>
-<body><div class="container">
-  <div class="header"><h1>🔐 Réinitialisation de mot de passe</h1></div>
-  <div class="content">
-    <p>Bonjour <strong>${user.prenom} ${user.nom}</strong>,</p>
-    <p>Votre nouveau mot de passe temporaire :</p>
-    <div class="code-box">${newPassword}</div>
-    <div class="warning"><strong>⚠️ Sécurité :</strong><ul>
-      <li>Changez ce mot de passe dès votre prochaine connexion</li>
-      <li>Si vous n'avez pas demandé cette réinitialisation, contactez l'administrateur</li>
-    </ul></div>
-    <p style="text-align:center;">
-      <a href="${process.env.FRONTEND_URL || 'https://bubbletech-pointage-4kdx-one.vercel.app'}/login" class="button">Se connecter →</a>
-    </p>
-    <p>Cordialement,<br><strong>L'équipe BubbleTech</strong></p>
-  </div>
-</div></body></html>`;
-
-    const result = await sendEmail({
-      to: user.email,
-      toName: `${user.prenom} ${user.nom}`,
-      subject: '🔐 Réinitialisation de votre mot de passe BubbleTech',
-      html
-    });
-
-    if (result.success) console.log('📧 Email reset envoyé à:', user.email);
-    return result;
+    return this.sendPasswordResetCode(user, newPassword);
   }
 }
 
