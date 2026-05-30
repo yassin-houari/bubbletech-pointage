@@ -5,33 +5,43 @@ const _fromRaw = process.env.MAILERSEND_FROM_EMAIL || 'test-y7zpl98rkzr45vx6.mls
 const FROM_EMAIL = _fromRaw.includes('@') ? _fromRaw : `noreply@${_fromRaw}`;
 const SENDER_NAME = 'BubbleTech Pointage';
 
-const sendEmail = async ({ to, toName, subject, html }) => {
+// Envoyer un email via Mailersend avec retry automatique
+const sendEmail = async ({ to, toName, subject, html }, retries = 2) => {
   if (!MAILERSEND_API_KEY) {
     console.warn('⚠️  MAILERSEND_API_KEY non défini');
     return { success: false, error: 'MAILERSEND_API_KEY non configuré' };
   }
 
-  try {
-    const response = await axios.post(
-      'https://api.mailersend.com/v1/email',
-      {
-        from: { email: FROM_EMAIL, name: SENDER_NAME },
-        to: [{ email: to, name: toName || to }],
-        subject,
-        html
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${MAILERSEND_API_KEY}`,
-          'Content-Type': 'application/json'
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await axios.post(
+        'https://api.mailersend.com/v1/email',
+        {
+          from: { email: FROM_EMAIL, name: SENDER_NAME },
+          to: [{ email: to, name: toName || to }],
+          subject,
+          html
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${MAILERSEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 8000 // 8 secondes max (Vercel timeout = 10s)
         }
+      );
+      return { success: true, messageId: response.headers['x-message-id'] || 'sent' };
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message;
+      console.error(`❌ Mailersend tentative ${attempt}/${retries}:`, errMsg, err.response?.data || '');
+
+      if (attempt === retries) {
+        return { success: false, error: errMsg };
       }
-    );
-    return { success: true, messageId: response.headers['x-message-id'] || 'sent' };
-  } catch (err) {
-    const errMsg = err.response?.data?.message || err.message;
-    console.error('❌ Mailersend error:', errMsg, err.response?.data);
-    return { success: false, error: errMsg };
+
+      // Attendre 1 seconde avant de réessayer
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 };
 

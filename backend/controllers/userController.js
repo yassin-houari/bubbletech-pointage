@@ -295,7 +295,7 @@ const createUser = async (req, res) => {
       success: true,
       message: emailSent
         ? 'Utilisateur créé avec succès — email de bienvenue envoyé'
-        : 'Utilisateur créé avec succès — email de bienvenue non envoyé (vérifiez la config Brevo)',
+        : 'Utilisateur créé avec succès — email de bienvenue non envoyé (vérifiez la config Mailersend)',
       userId,
       codeSecret,
       email_sent: emailSent
