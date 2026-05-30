@@ -109,6 +109,8 @@ const createUser = async (req, res) => {
       doit_changer_mdp,
       code_secret,
       actif,
+      departement_id,     // département principal (utilisé pour tous les rôles)
+      departement_ids,    // liste de départements gérés (pour managers)
       // Données personnel
       poste_id,
       poste_nom,
@@ -196,6 +198,16 @@ const createUser = async (req, res) => {
     const forceChange = typeof doit_changer_mdp !== 'undefined' ? !!doit_changer_mdp : (temporaryPassword !== null);
 
     let resolvedDepartementId = null;
+
+    // Pour manager et stagiaire : utiliser le departement_id fourni directement
+    if (role === 'manager') {
+      const deptIdsArr = Array.isArray(departement_ids) && departement_ids.length > 0 ? departement_ids : null;
+      const primaryId = deptIdsArr ? deptIdsArr[0] : departement_id;
+      resolvedDepartementId = primaryId ? Number(primaryId) : null;
+    } else if (role === 'stagiaire' && departement_id) {
+      resolvedDepartementId = Number(departement_id);
+    }
+
     if (role === 'personnel') {
       let resolvedPosteId = poste_id;
       if (!resolvedPosteId && poste_nom) {
@@ -265,6 +277,15 @@ const createUser = async (req, res) => {
         'INSERT INTO managers (user_id, date_nomination) VALUES (?, CURDATE())',
         [userId]
       );
+      // Assigner les départements gérés par ce manager
+      const deptIdsToAssign = Array.isArray(departement_ids)
+        ? departement_ids.map(Number).filter(Boolean)
+        : (departement_id ? [Number(departement_id)] : []);
+      for (const dId of deptIdsToAssign) {
+        if (dId > 0) {
+          await connection.query('UPDATE departements SET manager_id = ? WHERE id = ?', [userId, dId]);
+        }
+      }
     }
 
     await connection.commit();
@@ -325,17 +346,21 @@ const getAllUsers = async (req, res) => {
     
     // Base query: join role-specific tables to provide useful metadata
     let query = `
-            SELECT u.*,
-              p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
-             p.date_embauche, p.salaire,
-             s.date_debut, s.date_fin,
-             m.date_nomination
+      SELECT u.*,
+        p.poste_id, po.nom as poste_nom, d.nom as departement_nom,
+        p.date_embauche, p.salaire,
+        s.date_debut, s.date_fin,
+        m.date_nomination,
+        mgr.id AS manager_id,
+        CONCAT(mgr.prenom, ' ', mgr.nom) AS manager_nom,
+        (SELECT GROUP_CONCAT(d2.id ORDER BY d2.id) FROM departements d2 WHERE d2.manager_id = u.id) AS managed_departement_ids
       FROM users u
       LEFT JOIN personnel p ON u.id = p.user_id
       LEFT JOIN postes po ON p.poste_id = po.id
       LEFT JOIN departements d ON u.departement_id = d.id
       LEFT JOIN stagiaires s ON u.id = s.user_id
       LEFT JOIN managers m ON u.id = m.user_id
+      LEFT JOIN users mgr ON mgr.id = d.manager_id
       WHERE 1=1
     `;
     
@@ -364,7 +389,7 @@ const getAllUsers = async (req, res) => {
       params.push(req.user.id, req.user.id);
     }
 
-    query += ' ORDER BY u.nom, u.prenom';
+    query += ' ORDER BY u.id DESC'; // plus récent en premier
 
     const [users] = await pool.query(query, params);
 
@@ -736,6 +761,25 @@ const updateUser = async (req, res) => {
           `UPDATE stagiaires SET ${stagiaireFields.join(', ')} WHERE user_id = ?`,
           stagiaireValues
         );
+      }
+    }
+
+    // Gestion des départements pour les managers (nouvelle assignation ou mise à jour)
+    if (newRole === 'manager' && Array.isArray(req.body.departement_ids)) {
+      const deptIds = req.body.departement_ids.map(Number).filter(Boolean);
+      // Retirer les anciennes assignations de ce manager
+      await connection.query('UPDATE departements SET manager_id = NULL WHERE manager_id = ?', [id]);
+      // Assigner les nouveaux départements
+      for (const dId of deptIds) {
+        if (dId > 0) {
+          await connection.query('UPDATE departements SET manager_id = ? WHERE id = ?', [id, dId]);
+        }
+      }
+    } else if (newRole === 'manager' && req.body.departement_id && !Array.isArray(req.body.departement_ids)) {
+      // Un seul département envoyé sans array
+      const singleId = Number(req.body.departement_id);
+      if (singleId > 0) {
+        await connection.query('UPDATE departements SET manager_id = ? WHERE id = ?', [id, singleId]);
       }
     }
 

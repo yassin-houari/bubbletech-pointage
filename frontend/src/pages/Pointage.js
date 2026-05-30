@@ -71,24 +71,24 @@ const Pointage = () => {
     setLoadingSessions(false);
   };
 
+  // Formate des minutes en "1h05m"
+  const fmtMins = (raw) => {
+    const total = parseInt(raw || 0);
+    return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}m`;
+  };
+
   const handleCheckIn = async () => {
     setLoading(true);
     try {
       const response = await pointageService.checkIn();
       if (response.data.success) {
         const checkinAt = new Date(response.data.pointage.checkin_at);
-        const timeStr = checkinAt.toLocaleTimeString();
-        setMessage({ 
-          type: 'success', 
-          text: `Check-in enregistré à ${timeStr}` 
-        });
-        setTimeout(() => resetForm(), 3000);
+        const timeStr = checkinAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setMessage({ type: 'success', text: `✅ Check-in enregistré à ${timeStr}` });
+        if (activeUser?.id) loadSessions(activeUser.id); // rester sur la page, recharger les sessions
       }
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Erreur lors du check-in' 
-      });
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-in' });
     }
     setLoading(false);
   };
@@ -98,20 +98,17 @@ const Pointage = () => {
     try {
       const response = await pointageService.checkOut();
       if (response.data.success) {
-        const minutes = response.data.pointage.duree_travail_minutes;
+        const minutes = parseInt(response.data.pointage.duree_travail_minutes || 0);
         const heures = Math.floor(minutes / 60);
         const mins = minutes % 60;
-        setMessage({ 
-          type: 'success', 
-          text: `Check-out enregistré. Temps travaillé: ${heures}h${mins}min` 
+        setMessage({
+          type: 'success',
+          text: `✅ Check-out — ${heures}h${String(mins).padStart(2, '0')}min travaillées`
         });
-        setTimeout(() => resetForm(), 3000);
+        if (activeUser?.id) loadSessions(activeUser.id);
       }
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Erreur lors du check-out' 
-      });
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Erreur lors du check-out' });
     }
     setLoading(false);
   };
@@ -301,16 +298,16 @@ const Pointage = () => {
                         <strong>Départ:</strong> {s.checkout_at ? new Date(s.checkout_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'En cours'}
                       </div>
                       <div className="session-meta">
-                        <span>Durée: {s.duree_travail_minutes ? `${Math.floor(s.duree_travail_minutes/60)}h${s.duree_travail_minutes%60}m` : '-'}</span>
+                        <span>Durée: {s.duree_travail_minutes != null ? fmtMins(s.duree_travail_minutes) : '-'}</span>
                         <span style={{marginLeft: '1rem'}}>Statut: {s.statut}</span>
                       </div>
                       {s.nb_pauses > 0 && (
                         <div className="session-pauses">
                           <FiCoffee style={{marginRight: '4px', color: '#f59e0b'}} />
                           <span>{s.nb_pauses} pause{s.nb_pauses > 1 ? 's' : ''}</span>
-                          {s.duree_pauses_minutes > 0 && (
+                          {parseInt(s.duree_pauses_minutes || 0) > 0 && (
                             <span style={{marginLeft: '8px', color: '#6b7280'}}>
-                              ({Math.floor(s.duree_pauses_minutes/60)}h{s.duree_pauses_minutes%60}min)
+                              ({fmtMins(s.duree_pauses_minutes)})
                             </span>
                           )}
                           {s.pause_active_id && (

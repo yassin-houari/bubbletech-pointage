@@ -22,6 +22,7 @@ const Personnel = () => {
   const [selectedPosteId, setSelectedPosteId] = useState('');
   const [newDepartementName, setNewDepartementName] = useState('');
   const [newPosteName, setNewPosteName] = useState('');
+  const [managerDeptIds, setManagerDeptIds] = useState([]); // départements gérés par un manager
 
   const formatRoleLabel = (role) => {
     switch (role) {
@@ -139,6 +140,12 @@ const Personnel = () => {
     setSelectedPosteId(u.poste_id ? String(u.poste_id) : '');
     setNewDepartementName('');
     setNewPosteName('');
+    // Initialiser les départements gérés pour les managers
+    if (u.role === 'manager' && u.managed_departement_ids) {
+      setManagerDeptIds(String(u.managed_departement_ids).split(',').map(Number).filter(Boolean));
+    } else {
+      setManagerDeptIds([]);
+    }
     setShowForm(true);
   };
 
@@ -163,6 +170,7 @@ const Personnel = () => {
     setSelectedPosteId('');
     setNewDepartementName('');
     setNewPosteName('');
+    setManagerDeptIds([]);
     setShowForm(true);
   };
 
@@ -185,17 +193,23 @@ const Personnel = () => {
       }
 
       if (isAdmin) {
-        let assignedDepartementId = payload.departement_id;
-        if (assignedDepartementId === 'new') {
-          if (!newDepartementName) {
-            alert('Veuillez saisir un departement.');
-            return;
+        if (payload.role === 'manager') {
+          // Pour les managers : envoyer la liste des départements gérés
+          payload.departement_ids = managerDeptIds;
+          payload.departement_id = managerDeptIds.length > 0 ? managerDeptIds[0] : null;
+        } else {
+          let assignedDepartementId = payload.departement_id;
+          if (assignedDepartementId === 'new') {
+            if (!newDepartementName) {
+              alert('Veuillez saisir un departement.');
+              return;
+            }
+            const depRes = await departementService.create({ nom: newDepartementName });
+            assignedDepartementId = String(depRes.data.departement.id);
+            await loadLookups();
           }
-          const depRes = await departementService.create({ nom: newDepartementName });
-          assignedDepartementId = String(depRes.data.departement.id);
-          await loadLookups();
+          payload.departement_id = assignedDepartementId ? Number(assignedDepartementId) : null;
         }
-        payload.departement_id = assignedDepartementId ? Number(assignedDepartementId) : null;
       } else {
         delete payload.departement_id;
       }
@@ -388,6 +402,8 @@ const Personnel = () => {
                 <th>Nom</th>
                 <th>Email</th>
                 <th>Rôle</th>
+                <th>Département</th>
+                <th>Manager</th>
                 <th>Poste</th>
                 <th>Embauche</th>
                 <th>Actif</th>
@@ -406,6 +422,10 @@ const Personnel = () => {
                     <td>{u.prenom} {u.nom}</td>
                     <td>{u.email}</td>
                     <td>{formatRoleLabel(u.role)}</td>
+                    <td>{u.departement_nom || '-'}</td>
+                    <td style={{ color: u.manager_nom ? '#4F46E5' : '#9ca3af', fontWeight: u.manager_nom ? 600 : 400 }}>
+                      {u.manager_nom || '-'}
+                    </td>
                     <td>{u.poste_nom || '-'}</td>
                     <td>{u.date_embauche ? format(new Date(u.date_embauche), 'dd/MM/yyyy') : '-'}</td>
                     <td>{u.actif ? 'Oui' : 'Non'}</td>
@@ -480,7 +500,8 @@ const Personnel = () => {
                   <input value={formatRoleLabel(editingUser.role)} disabled />
                 )}
               </div>
-              {isAdmin && (
+              {/* Département d'affectation — pour tous sauf manager */}
+              {isAdmin && editingUser.role !== 'manager' && (
                 <div>
                   <label>Département d'affectation</label>
                   <select
@@ -501,7 +522,7 @@ const Personnel = () => {
                   </select>
                 </div>
               )}
-              {isAdmin && editingUser.departement_id === 'new' && (
+              {isAdmin && editingUser.role !== 'manager' && editingUser.departement_id === 'new' && (
                 <div>
                   <label>Nouveau département</label>
                   <input
@@ -509,6 +530,42 @@ const Personnel = () => {
                     onChange={(e) => setNewDepartementName(e.target.value)}
                     placeholder="Ex: IT"
                   />
+                </div>
+              )}
+              {/* Départements gérés — pour managers uniquement (multi-sélection) */}
+              {isAdmin && editingUser.role === 'manager' && (
+                <div>
+                  <label>Départements gérés (peut gérer plusieurs)</label>
+                  {departements.length === 0 ? (
+                    <p style={{ color: '#6b7280', fontSize: 13 }}>Aucun département créé</p>
+                  ) : (
+                    <div style={{
+                      border: '1px solid #d1d5db', borderRadius: 6, padding: '8px 12px',
+                      maxHeight: 180, overflowY: 'auto', background: '#fff'
+                    }}>
+                      {departements.map(d => (
+                        <label key={d.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '4px 0', cursor: 'pointer', fontSize: 14
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={managerDeptIds.includes(d.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setManagerDeptIds(prev => [...prev, d.id]);
+                              else setManagerDeptIds(prev => prev.filter(id => id !== d.id));
+                            }}
+                          />
+                          {d.nom}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {managerDeptIds.length > 0 && (
+                    <p style={{ fontSize: 12, color: '#4F46E5', margin: '4px 0 0' }}>
+                      ✅ {managerDeptIds.length} département(s) sélectionné(s)
+                    </p>
+                  )}
                 </div>
               )}
               {editingUser.role === 'stagiaire' && (
