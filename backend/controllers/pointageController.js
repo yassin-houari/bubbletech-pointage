@@ -272,7 +272,7 @@ const getPointages = async (req, res) => {
       SELECT p.*, u.nom, u.prenom, u.email, u.role,
         (SELECT COUNT(*) FROM pauses WHERE pointage_id = p.id) AS nb_pauses,
         (SELECT id FROM pauses WHERE pointage_id = p.id AND fin_pause IS NULL LIMIT 1) AS pause_active_id,
-        COALESCE((SELECT SUM(duree_minutes) FROM pauses WHERE pointage_id = p.id), 0) AS duree_pauses_minutes
+        CAST(COALESCE((SELECT SUM(duree_minutes) FROM pauses WHERE pointage_id = p.id), 0) AS UNSIGNED) AS duree_pauses_minutes
       FROM pointages p
       JOIN users u ON p.user_id = u.id
       WHERE 1=1
