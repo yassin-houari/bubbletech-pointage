@@ -274,8 +274,15 @@ const Personnel = () => {
         await userService.update(payload.id, payload);
         await loadUsers();
       } else {
-        await userService.create(payload);
+        const res = await userService.create(payload);
         await loadUsers();
+        if (!payload.id) {
+          const emailSent = res.data?.email_sent;
+          const msg = emailSent
+            ? `✅ Compte créé avec succès !\n\nUn email de bienvenue a été envoyé à ${payload.email}.\n\n⚠️ Demandez à l'employé de vérifier son dossier SPAM et de marquer l'email comme "Pas du spam".`
+            : `✅ Compte créé avec succès !\n\n⚠️ L'email de bienvenue n'a pas pu être envoyé. Communiquez les identifiants manuellement.`;
+          alert(msg);
+        }
       }
       setShowForm(false);
     } catch (err) {
