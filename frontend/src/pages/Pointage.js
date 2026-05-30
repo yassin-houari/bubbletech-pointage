@@ -78,15 +78,9 @@ const Pointage = () => {
     return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}m`;
   };
 
-  // Après chaque action : dashboard si connecté par email, sinon retour PIN
+  // Après chaque action : toujours retour PIN (kiosque partagé multi-employés)
   const afterAction = () => {
-    setTimeout(() => {
-      if (isAuthenticated) {
-        navigate('/dashboard');
-      } else {
-        resetForm();
-      }
-    }, 2500);
+    setTimeout(() => resetForm(), 2500);
   };
 
   const handleCheckIn = async () => {
