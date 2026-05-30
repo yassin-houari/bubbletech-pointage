@@ -19,6 +19,9 @@ const notificationRoutes = require('./routes/notifications');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Nécessaire pour Vercel (derrière un proxy) — rate-limiter lit la vraie IP
+app.set('trust proxy', 1);
+
 // CORS - autoriser toutes les origines (sécurité assurée par JWT)
 const corsOptions = {
   origin: true,           // reflète l'origine de la requête
