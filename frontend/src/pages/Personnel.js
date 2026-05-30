@@ -457,7 +457,19 @@ const Personnel = () => {
               </div>
               <div>
                 <label>Email</label>
-                <input type="email" value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} required />
+                <input
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  required
+                />
+                {editingUser.email && (() => {
+                  const domain = editingUser.email.split('@')[1]?.toLowerCase();
+                  const personal = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','msn.com','icloud.com','aol.com','laposte.net','free.fr','orange.fr'];
+                  return personal.includes(domain)
+                    ? <p style={{ color: '#f59e0b', fontSize: 12, margin: '4px 0 0' }}>⚠️ Email personnel détecté — utilisez l'email professionnel de l'employé</p>
+                    : null;
+                })()}
               </div>
               {isAdmin && (
                 <div>
@@ -532,50 +544,20 @@ const Personnel = () => {
                   />
                 </div>
               )}
-              {/* Départements gérés — pour managers uniquement (multi-sélection) */}
+              {/* Département géré — pour managers (1 seul département) */}
               {isAdmin && editingUser.role === 'manager' && (
                 <div>
-                  <label>Départements gérés</label>
-                  {departements.length === 0 ? (
-                    <p style={{ color: '#6b7280', fontSize: 13 }}>Aucun département créé</p>
-                  ) : (
-                    <div style={{
-                      display: 'flex', flexWrap: 'wrap', gap: '8px',
-                      border: '1px solid #d1d5db', borderRadius: 6,
-                      padding: '10px 12px', background: '#f9fafb'
-                    }}>
-                      {departements.map(d => {
-                        const selected = managerDeptIds.includes(d.id);
-                        return (
-                          <label key={d.id} style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
-                            fontSize: 13, fontWeight: 500, userSelect: 'none',
-                            border: `1.5px solid ${selected ? '#4F46E5' : '#d1d5db'}`,
-                            background: selected ? '#ede9fe' : '#fff',
-                            color: selected ? '#4F46E5' : '#374151',
-                            transition: 'all 0.15s'
-                          }}>
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={(e) => {
-                                if (e.target.checked) setManagerDeptIds(prev => [...prev, d.id]);
-                                else setManagerDeptIds(prev => prev.filter(id => id !== d.id));
-                              }}
-                              style={{ display: 'none' }}
-                            />
-                            {selected ? '✓ ' : ''}{d.nom}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {managerDeptIds.length > 0 && (
-                    <p style={{ fontSize: 12, color: '#4F46E5', margin: '4px 0 0' }}>
-                      {managerDeptIds.length} département(s) sélectionné(s)
-                    </p>
-                  )}
+                  <label>Département géré</label>
+                  <select
+                    value={managerDeptIds[0] || ''}
+                    onChange={(e) => setManagerDeptIds(e.target.value ? [Number(e.target.value)] : [])}
+                    disabled={loadingLookups}
+                  >
+                    <option value="">— Aucun département —</option>
+                    {departements.map(d => (
+                      <option key={d.id} value={d.id}>{d.nom}</option>
+                    ))}
+                  </select>
                 </div>
               )}
               {editingUser.role === 'stagiaire' && (

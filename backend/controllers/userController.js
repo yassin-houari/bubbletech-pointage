@@ -901,21 +901,20 @@ const getAssignableUsersForManager = async (req, res) => {
       return res.json({ success: true, count: 0, users: [] });
     }
 
-    const placeholders = departementIds.map(() => '?').join(', ');
+    // Seuls les employés sans département peuvent être ajoutés à une équipe
+    // (un employé appartient à un seul département à la fois)
     const [users] = await pool.query(
       `SELECT u.id, u.nom, u.prenom, u.email, u.role,
-              u.departement_id, d.nom AS departement_nom,
               p.poste_id, po.nom AS poste_nom
        FROM users u
        LEFT JOIN personnel p ON p.user_id = u.id
        LEFT JOIN postes po ON po.id = p.poste_id
-       LEFT JOIN departements d ON d.id = u.departement_id
        WHERE u.actif = 1
          AND u.id != ?
          AND u.role IN ('personnel', 'stagiaire')
-         AND (u.departement_id IS NULL OR u.departement_id NOT IN (${placeholders}))
+         AND u.departement_id IS NULL
        ORDER BY u.nom, u.prenom`,
-      [managerId, ...departementIds]
+      [managerId]
     );
 
     res.json({
