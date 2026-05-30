@@ -78,10 +78,8 @@ const Pointage = () => {
     return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}m`;
   };
 
-  // Après chaque action : toujours retour PIN (kiosque partagé multi-employés)
-  const afterAction = () => {
-    setTimeout(() => resetForm(), 2500);
-  };
+  // Après chaque action : message visible 2.5s puis retour PIN pour l'employé suivant
+  const afterAction = () => setTimeout(() => resetForm(), 2500);
 
   const handleCheckIn = async () => {
     setLoading(true);
