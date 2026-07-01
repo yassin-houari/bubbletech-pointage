@@ -93,6 +93,23 @@ const isUserManagedByManager = async (connection, managerId, userId) => {
   return rows.length > 0;
 };
 
+const DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE = 'A manager already exists for the selected department. Please choose another department.';
+
+// Vérifie qu'un département n'a pas déjà un manager différent de excludeManagerId
+const departementHasOtherManager = async (connection, departementId, excludeManagerId = null) => {
+  const [rows] = await connection.query(
+    'SELECT manager_id FROM departements WHERE id = ? LIMIT 1',
+    [departementId]
+  );
+  if (rows.length === 0 || !rows[0].manager_id) {
+    return false;
+  }
+  if (excludeManagerId && Number(rows[0].manager_id) === Number(excludeManagerId)) {
+    return false;
+  }
+  return true;
+};
+
 // Créer un utilisateur (personnel ou stagiaire)
 const createUser = async (req, res) => {
   const connection = await pool.getConnection();
@@ -198,12 +215,24 @@ const createUser = async (req, res) => {
     const forceChange = typeof doit_changer_mdp !== 'undefined' ? !!doit_changer_mdp : (temporaryPassword !== null);
 
     let resolvedDepartementId = null;
+    let managerDeptIdsToAssign = [];
 
     // Pour manager et stagiaire : utiliser le departement_id fourni directement
     if (role === 'manager') {
-      const deptIdsArr = Array.isArray(departement_ids) && departement_ids.length > 0 ? departement_ids : null;
-      const primaryId = deptIdsArr ? deptIdsArr[0] : departement_id;
-      resolvedDepartementId = primaryId ? Number(primaryId) : null;
+      managerDeptIdsToAssign = Array.isArray(departement_ids) && departement_ids.length > 0
+        ? departement_ids.map(Number).filter(Boolean)
+        : (departement_id ? [Number(departement_id)] : []);
+      resolvedDepartementId = managerDeptIdsToAssign[0] || null;
+
+      for (const dId of managerDeptIdsToAssign) {
+        if (await departementHasOtherManager(connection, dId)) {
+          await connection.rollback();
+          return res.status(409).json({
+            success: false,
+            message: DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE
+          });
+        }
+      }
     } else if (role === 'stagiaire' && departement_id) {
       resolvedDepartementId = Number(departement_id);
     }
@@ -278,10 +307,7 @@ const createUser = async (req, res) => {
         [userId]
       );
       // Assigner les départements gérés par ce manager
-      const deptIdsToAssign = Array.isArray(departement_ids)
-        ? departement_ids.map(Number).filter(Boolean)
-        : (departement_id ? [Number(departement_id)] : []);
-      for (const dId of deptIdsToAssign) {
+      for (const dId of managerDeptIdsToAssign) {
         if (dId > 0) {
           await connection.query('UPDATE departements SET manager_id = ? WHERE id = ?', [userId, dId]);
         }
@@ -767,6 +793,15 @@ const updateUser = async (req, res) => {
     // Gestion des départements pour les managers (nouvelle assignation ou mise à jour)
     if (newRole === 'manager' && Array.isArray(req.body.departement_ids)) {
       const deptIds = req.body.departement_ids.map(Number).filter(Boolean);
+      for (const dId of deptIds) {
+        if (await departementHasOtherManager(connection, dId, id)) {
+          await connection.rollback();
+          return res.status(409).json({
+            success: false,
+            message: DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE
+          });
+        }
+      }
       // Retirer les anciennes assignations de ce manager
       await connection.query('UPDATE departements SET manager_id = NULL WHERE manager_id = ?', [id]);
       // Assigner les nouveaux départements
@@ -779,6 +814,13 @@ const updateUser = async (req, res) => {
       // Un seul département envoyé sans array
       const singleId = Number(req.body.departement_id);
       if (singleId > 0) {
+        if (await departementHasOtherManager(connection, singleId, id)) {
+          await connection.rollback();
+          return res.status(409).json({
+            success: false,
+            message: DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE
+          });
+        }
         await connection.query('UPDATE departements SET manager_id = ? WHERE id = ?', [id, singleId]);
       }
     }
