@@ -113,7 +113,13 @@ const seed = async () => {
 
     // ── 7. Pointages (30 derniers jours, jours ouvrés) ─────────────────────
     const workers = [idYassine, idMarie, idLucas, idEmma, idTom, idClaire, idPaul, idLea, idNoah];
-    const pointageRows = [];
+    const pointageEntries = [];
+
+    const formatDateTime = (dateStr, totalMinutes) => {
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${dateStr} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+    };
 
     for (let d = 29; d >= 1; d--) {
       const date = new Date();
@@ -129,36 +135,76 @@ const seed = async () => {
 
         const checkinH = 7 + Math.floor(Math.random() * 2);        // 7h ou 8h
         const checkinM = Math.floor(Math.random() * 60);
+        const checkinTotalMin = checkinH * 60 + checkinM;
         const duree    = 420 + Math.floor(Math.random() * 90);     // 7h à 8h30
-        const checkin  = `${dateStr} ${String(checkinH).padStart(2,'0')}:${String(checkinM).padStart(2,'0')}:00`;
+        const checkin  = formatDateTime(dateStr, checkinTotalMin);
 
         // Hier → pointage "incomplet" pour 5% des cas
-        let checkout = null, statut = 'incomplet', dureeMin = null;
+        let checkout = null, statut = 'incomplet', dureeMin = null, checkoutTotalMin = null;
         if (d > 1 || Math.random() > 0.05) {
-          const totalMin = checkinH * 60 + checkinM + duree;
-          const coH = Math.floor(totalMin / 60);
-          const coM = totalMin % 60;
-          checkout = `${dateStr} ${String(coH).padStart(2,'0')}:${String(coM).padStart(2,'0')}:00`;
+          checkoutTotalMin = checkinTotalMin + duree;
+          checkout = formatDateTime(dateStr, checkoutTotalMin);
           statut   = 'termine';
           dureeMin = duree;
         }
 
-        pointageRows.push(`(${uid}, '${dateStr}', '${checkin}', ${checkout ? `'${checkout}'` : 'NULL'}, '${statut}', ${dureeMin ?? 'NULL'})`);
+        pointageEntries.push({ uid, dateStr, checkin, checkout, statut, dureeMin, checkinTotalMin, checkoutTotalMin });
       }
     }
 
     // Aujourd'hui : checkin seulement (en_cours)
     const today = new Date().toISOString().slice(0, 10);
     for (const uid of [idYassine, idLucas, idEmma]) {
-      pointageRows.push(`(${uid}, '${today}', '${today} 08:00:00', NULL, 'en_cours', NULL)`);
+      pointageEntries.push({
+        uid, dateStr: today, checkin: `${today} 08:00:00`, checkout: null,
+        statut: 'en_cours', dureeMin: null, checkinTotalMin: 8 * 60, checkoutTotalMin: null
+      });
     }
 
-    if (pointageRows.length) {
-      await connection.query(
+    let pauseCount = 0;
+    if (pointageEntries.length) {
+      const pointageRows = pointageEntries.map(({ uid, dateStr, checkin, checkout, statut, dureeMin }) =>
+        `(${uid}, '${dateStr}', '${checkin}', ${checkout ? `'${checkout}'` : 'NULL'}, '${statut}', ${dureeMin ?? 'NULL'})`
+      );
+      const [pointageResult] = await connection.query(
         `INSERT INTO pointages (user_id, date_pointage, checkin_at, checkout_at, statut, duree_travail_minutes) VALUES ${pointageRows.join(',')}`
       );
+      const firstPointageId = pointageResult.insertId;
+
+      // Pause déjeuner (30-60 min) + pause café ponctuelle sur les journées terminées
+      const pauseRows = [];
+      pointageEntries.forEach((entry, idx) => {
+        if (entry.statut !== 'termine') return;
+        const pointageId = firstPointageId + idx;
+        const { dateStr, checkinTotalMin, checkoutTotalMin } = entry;
+
+        const lunchDuration = 30 + Math.floor(Math.random() * 31);
+        const lunchStart = Math.min(
+          checkinTotalMin + 180 + Math.floor(Math.random() * 90),
+          checkoutTotalMin - lunchDuration - 30
+        );
+        const lunchEnd = lunchStart + lunchDuration;
+        pauseRows.push(`(${pointageId}, '${formatDateTime(dateStr, lunchStart)}', '${formatDateTime(dateStr, lunchEnd)}', ${lunchDuration})`);
+
+        if (Math.random() < 0.3) {
+          const coffeeDuration = 10 + Math.floor(Math.random() * 6);
+          const coffeeStart = Math.min(lunchEnd + 90, checkoutTotalMin - coffeeDuration - 15);
+          if (coffeeStart > lunchEnd) {
+            const coffeeEnd = coffeeStart + coffeeDuration;
+            pauseRows.push(`(${pointageId}, '${formatDateTime(dateStr, coffeeStart)}', '${formatDateTime(dateStr, coffeeEnd)}', ${coffeeDuration})`);
+          }
+        }
+      });
+
+      if (pauseRows.length) {
+        await connection.query(
+          `INSERT INTO pauses (pointage_id, debut_pause, fin_pause, duree_minutes) VALUES ${pauseRows.join(',')}`
+        );
+      }
+      pauseCount = pauseRows.length;
     }
-    console.log(`✅ ${pointageRows.length} pointages créés`);
+    console.log(`✅ ${pointageEntries.length} pointages créés`);
+    console.log(`✅ ${pauseCount} pauses créées`);
 
     // ── 8. Notifications ───────────────────────────────────────────────────
     await connection.query(`
