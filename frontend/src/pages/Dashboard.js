@@ -127,11 +127,6 @@ const Dashboard = () => {
             <span style={{ color: '#666', fontSize: '0.85rem' }}>
               {s.duree_travail_minutes ? formatDuration(s.duree_travail_minutes) : 'en cours'}
             </span>
-            {s.duree_pauses_minutes > 0 && (
-              <span style={{ color: '#b45309', fontSize: '0.8rem' }}>
-                dont {formatDuration(s.duree_pauses_minutes)} de pause
-              </span>
-            )}
             {s.statut === 'en_cours' && (
               <span style={{ 
                 fontSize: '0.75rem', 
