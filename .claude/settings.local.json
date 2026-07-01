@@ -1,7 +1,23 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
-      "PowerShell(Get-Service | Where-Object { $_.Name -match \"sql|mysql|maria|db\" } | Select-Object Name, Status)"
+      "PowerShell(Get-Service | Where-Object { $_.Name -match \"sql|mysql|maria|db\" } | Select-Object Name, Status)",
+      "Bash(git config *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(python -c \"import json; print\\(json.load\\(open\\('.claude/settings.local.json'\\)\\)\\)\")",
+      "Bash(node -e \"console.log\\(JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.local.json','utf8'\\)\\)\\)\")",
+      "Bash(git ls-remote *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(node --check backend/controllers/userController.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)"
     ]
   }
 }
