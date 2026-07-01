@@ -74,16 +74,19 @@ const Dashboard = () => {
           nom: p.nom,
           email: p.email,
           duree_totale_minutes: 0,
+          duree_pauses_minutes: 0,
           statut_principal: 'termine',
           sessions: []
         };
       }
       grouped[key].duree_totale_minutes += (p.duree_travail_minutes || 0);
+      grouped[key].duree_pauses_minutes += (p.duree_pauses_minutes || 0);
       grouped[key].sessions.push({
         id: p.id,
         checkin_at: p.checkin_at,
         checkout_at: p.checkout_at,
         duree_travail_minutes: p.duree_travail_minutes,
+        duree_pauses_minutes: p.duree_pauses_minutes,
         statut: p.statut
       });
       
@@ -124,6 +127,11 @@ const Dashboard = () => {
             <span style={{ color: '#666', fontSize: '0.85rem' }}>
               {s.duree_travail_minutes ? formatDuration(s.duree_travail_minutes) : 'en cours'}
             </span>
+            {s.duree_pauses_minutes > 0 && (
+              <span style={{ color: '#b45309', fontSize: '0.8rem' }}>
+                dont {formatDuration(s.duree_pauses_minutes)} de pause
+              </span>
+            )}
             {s.statut === 'en_cours' && (
               <span style={{ 
                 fontSize: '0.75rem', 
@@ -273,6 +281,7 @@ const Dashboard = () => {
                   <th>Date</th>
                   <th>Sessions (Arrivée → Départ)</th>
                   <th>Durée totale</th>
+                  <th>Pauses</th>
                   <th>Statut</th>
                 </tr>
               </thead>
@@ -288,6 +297,9 @@ const Dashboard = () => {
                     <td>{renderSessions(group.sessions)}</td>
                     <td style={{fontWeight: '500'}}>
                       {formatDuration(group.duree_totale_minutes)}
+                    </td>
+                    <td style={{color: '#b45309'}}>
+                      {group.duree_pauses_minutes > 0 ? formatDuration(group.duree_pauses_minutes) : '-'}
                     </td>
                     <td>
                       <span className={`badge badge-${group.statut_principal}`}>
@@ -352,6 +364,7 @@ const Dashboard = () => {
                     <th>Date</th>
                     <th>Sessions (Arrivée → Départ)</th>
                     <th>Durée totale</th>
+                    <th>Pauses</th>
                     <th>Statut</th>
                   </tr>
                 </thead>
@@ -367,6 +380,9 @@ const Dashboard = () => {
                       <td>{renderSessions(group.sessions)}</td>
                       <td style={{fontWeight: '500'}}>
                         {formatDuration(group.duree_totale_minutes)}
+                      </td>
+                      <td style={{color: '#b45309'}}>
+                        {group.duree_pauses_minutes > 0 ? formatDuration(group.duree_pauses_minutes) : '-'}
                       </td>
                       <td>
                         <span className={`badge badge-${group.statut_principal}`}>
