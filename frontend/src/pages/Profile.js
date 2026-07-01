@@ -160,7 +160,7 @@ const Profile = () => {
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <h1>Profile</h1>
+        <h1>Profil</h1>
         <p>Gérez vos informations personnelles</p>
       </div>
 

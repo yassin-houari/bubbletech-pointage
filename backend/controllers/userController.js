@@ -93,7 +93,7 @@ const isUserManagedByManager = async (connection, managerId, userId) => {
   return rows.length > 0;
 };
 
-const DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE = 'A manager already exists for the selected department. Please choose another department.';
+const DEPARTMENT_ALREADY_HAS_MANAGER_MESSAGE = 'Un manager existe déjà pour le département sélectionné. Veuillez choisir un autre département.';
 
 // Vérifie qu'un département n'a pas déjà un manager différent de excludeManagerId
 const departementHasOtherManager = async (connection, departementId, excludeManagerId = null) => {
