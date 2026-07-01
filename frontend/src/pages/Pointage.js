@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { pointageService } from '../services/api';
 import { FiClock, FiLogIn, FiLogOut, FiCheckCircle, FiCoffee } from 'react-icons/fi';
 import '../styles/Pointage.css';
 
 const Pointage = () => {
-  const navigate = useNavigate();
   const { loginWithCode, pointageDirectLogin, user, isAuthenticated } = useAuth();
   const [code, setCode] = useState('');
   const [isVerified, setIsVerified] = useState(false);
